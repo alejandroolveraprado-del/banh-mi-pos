@@ -1,0 +1,748 @@
+{
+  "settings": {
+    "masterPin": "1234",
+    "taxRate": 0.16,
+    "serviceRate": 0.1
+  },
+  "menu": [
+    {
+      "id": "ent-miso",
+      "name": "Sopa Miso Clásica",
+      "vietName": "Miso Soup",
+      "price": 95,
+      "category": "entradas",
+      "description": "Con tofu, wakame y hojuelas de pescado.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ent-rollos-frios",
+      "name": "Rollos Vietnamitas Fríos (Veg/Tofu)",
+      "vietName": "Fresh Spring Rolls",
+      "price": 97,
+      "category": "entradas",
+      "description": "Hoja de arroz, fideos de soya, lechuga, zanahoria, hierbas de olor y salsa de cacahuate.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ent-rollos-camaron",
+      "name": "Rollos Vietnamitas Fríos con Camarón",
+      "vietName": "Fresh Spring Rolls w/ Shrimp",
+      "price": 100,
+      "category": "entradas",
+      "description": "Hoja de arroz, fideos de soya, lechuga, zanahoria, hierbas de olor, salsa de cacahuate y camarón.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ent-satay",
+      "name": "Pollo Satay al Té de Limón",
+      "vietName": "Thai Satay Chicken",
+      "price": 120,
+      "category": "entradas",
+      "description": "4 Brochetas chicas con salsa de cacahuate thai, hierbas de olor y ensalada de col morada.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ent-stickers",
+      "name": "Pot Stickers (Cerdo)",
+      "vietName": "Pot Stickers",
+      "price": 116,
+      "category": "entradas",
+      "description": "Rellenos de carne molida de cerdo con ajo, jengibre y hierbas de olor, salsa de anguila y ponzu.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "pf-pad-pollo",
+      "name": "Pad Thai Pollo",
+      "vietName": "Pad Thai Chicken",
+      "price": 170,
+      "category": "pho",
+      "description": "Fideos de arroz con salsa thai agridulce, pollo, huevo, zanahoria, germen de soya, rábano, hierbas de olor, cilantro, col morada, ajo, jengibre y cacahuates.",
+      "options": [
+        "Sin cacahuate",
+        "Sin cilantro",
+        "Extra Pollo (+$60)"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-pad-tofu",
+      "name": "Pad Thai Tofu",
+      "vietName": "Pad Thai Tofu",
+      "price": 175,
+      "category": "pho",
+      "description": "Fideos de arroz con salsa thai agridulce, tofu, huevo, zanahoria, germen de soya, rábano, hierbas de olor, cilantro, col morada, ajo, jengibre y cacahuates.",
+      "options": [
+        "Sin cacahuate",
+        "Sin huevo"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-pad-camaron",
+      "name": "Pad Thai Camarón",
+      "vietName": "Pad Thai Shrimp",
+      "price": 208,
+      "category": "pho",
+      "description": "Fideos de arroz con salsa thai agridulce, camarón, huevo, zanahoria, germen de soya, rábano, hierbas de olor, cilantro, col morada, ajo, jengibre y cacahuates.",
+      "options": [
+        "Sin cacahuate",
+        "Extra Camarón (+$70)"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-pad-arrachera",
+      "name": "Pad Thai Arrachera",
+      "vietName": "Pad Thai Beef",
+      "price": 198,
+      "category": "pho",
+      "description": "Fideos de arroz con salsa thai agridulce, arrachera, huevo, zanahoria, germen de soya, rábano, hierbas de olor, cilantro, col morada, ajo, jengibre y cacahuates.",
+      "options": [
+        "Sin cacahuate",
+        "Extra Arrachera (+$70)"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-curry-pollo",
+      "name": "Curry de Coco Pollo",
+      "vietName": "Coconut Curry Chicken",
+      "price": 170,
+      "category": "pho",
+      "description": "Curry tailandés con pollo, brócoli, zanahoria y camotes, servido con arroz jazmín. Picante. 🌶️",
+      "options": [
+        "Poco picante",
+        "Muy picante"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-curry-tofu",
+      "name": "Curry de Coco Tofu",
+      "vietName": "Coconut Curry Tofu",
+      "price": 175,
+      "category": "pho",
+      "description": "Curry tailandés con tofu, brócoli, zanahoria y camotes, servido con arroz jazmín. Picante. 🌶️",
+      "options": [
+        "Poco picante",
+        "Muy picante"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-curry-camaron",
+      "name": "Curry de Coco Camarón",
+      "vietName": "Coconut Curry Shrimp",
+      "price": 208,
+      "category": "pho",
+      "description": "Curry tailandés con camarón, brócoli, zanahoria y camotes, servido con arroz jazmín. Picante. 🌶️",
+      "options": [
+        "Poco picante",
+        "Muy picante"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-curry-arrachera",
+      "name": "Curry de Coco Arrachera",
+      "vietName": "Coconut Curry Beef",
+      "price": 198,
+      "category": "pho",
+      "description": "Curry tailandés con arrachera, brócoli, zanahoria y camotes, servido con arroz jazmín. Picante. 🌶️",
+      "options": [
+        "Poco picante",
+        "Muy picante"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-stir-pollo",
+      "name": "Stir Fry Pollo",
+      "vietName": "Stir Fry Chicken",
+      "price": 170,
+      "category": "pho",
+      "description": "Salteado de pollo, morrones, brócoli, zanahoria, rábano, germen de soya, hierbas de olor, ajo, jengibre y cacahuates. Servido con arroz jazmín.",
+      "options": [
+        "Sin cacahuate"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-stir-tofu",
+      "name": "Stir Fry Tofu",
+      "vietName": "Stir Fry Tofu",
+      "price": 175,
+      "category": "pho",
+      "description": "Salteado de tofu, morrones, brócoli, zanahoria, rábano, germen de soya, hierbas de olor, ajo, jengibre y cacahuates. Servido con arroz jazmín.",
+      "options": [
+        "Sin cacahuate"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-stir-camaron",
+      "name": "Stir Fry Camarón",
+      "vietName": "Stir Fry Shrimp",
+      "price": 208,
+      "category": "pho",
+      "description": "Salteado de camarones, morrones, brócoli, zanahoria, rábano, germen de soya, hierbas de olor, ajo, jengibre y cacahuates. Servido con arroz jazmín.",
+      "options": [
+        "Sin cacahuate"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-stir-arrachera",
+      "name": "Stir Fry Arrachera",
+      "vietName": "Stir Fry Beef",
+      "price": 198,
+      "category": "pho",
+      "description": "Salteado de arrachera, morrones, brócoli, zanahoria, rábano, germen de soya, hierbas de olor, ajo, jengibre y cacahuates. Servido con arroz jazmín.",
+      "options": [
+        "Sin cacahuate"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-drunken-pollo",
+      "name": "Drunken Noodles Pollo",
+      "vietName": "Drunken Noodles Chicken",
+      "price": 170,
+      "category": "pho",
+      "description": "Fideos de arroz con salsa agridulce picante, pollo, 2 huevos, chile serrano, cebolla blanca, hierbas de olor, col morada, ajo, jengibre y jitomate cherry. Picante. 🌶️",
+      "options": [
+        "Poco picante",
+        "Muy picante"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-drunken-tofu",
+      "name": "Drunken Noodles Tofu",
+      "vietName": "Drunken Noodles Tofu",
+      "price": 175,
+      "category": "pho",
+      "description": "Fideos de arroz con salsa agridulce picante, tofu, 2 huevos, chile serrano, cebolla blanca, hierbas de olor, col morada, ajo, jengibre y jitomate cherry. Picante. 🌶️",
+      "options": [
+        "Poco picante",
+        "Muy picante"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-drunken-camaron",
+      "name": "Drunken Noodles Camarón",
+      "vietName": "Drunken Noodles Shrimp",
+      "price": 208,
+      "category": "pho",
+      "description": "Fideos de arroz con salsa agridulce picante, camarón, 2 huevos, chile serrano, cebolla blanca, hierbas de olor, col morada, ajo, jengibre y jitomate cherry. Picante. 🌶️",
+      "options": [
+        "Poco picante",
+        "Muy picante"
+      ],
+      "available": true
+    },
+    {
+      "id": "pf-drunken-arrachera",
+      "name": "Drunken Noodles Arrachera",
+      "vietName": "Drunken Noodles Beef",
+      "price": 198,
+      "category": "pho",
+      "description": "Fideos de arroz con salsa agridulce picante, arrachera, 2 huevos, chile serrano, cebolla blanca, hierbas de olor, col morada, ajo, jengibre y jitomate cherry. Picante. 🌶️",
+      "options": [
+        "Poco picante",
+        "Muy picante"
+      ],
+      "available": true
+    },
+    {
+      "id": "ens-mango",
+      "name": "Ensalada Pollo con Mango",
+      "vietName": "Chicken Mango Salad",
+      "price": 165,
+      "category": "entradas",
+      "description": "Lechuga mixta, mango, zanahoria, pepino, hierbas de olor y col morada con aderezo y semillas de ajonjolí.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ens-coco",
+      "name": "Camarones al Coco con Aderezo de Cacahuate",
+      "vietName": "Coconut Shrimp w/ Peanut Dressing",
+      "price": 173,
+      "category": "entradas",
+      "description": "Lechuga mixta, mango, zanahoria, pepino, hierbas de olor, camarones empanizados y aderezo de cacahuate.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ens-thai-arrachera",
+      "name": "Thai Picante con Arrachera",
+      "vietName": "Spicy Thai Beef Salad",
+      "price": 195,
+      "category": "entradas",
+      "description": "Mezcla de lechugas, pepino, jitomate, cebolla morada con aderezo thai picante.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "sop-tomkha",
+      "name": "Sopa Tom Kha Gai (Completa)",
+      "vietName": "Tom Kha Gai (Full)",
+      "price": 178,
+      "category": "entradas",
+      "description": "Sopa Thai de coco con pollo, brócoli, zanahoria, limón, fideos de soya, germen y col morada.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "sop-tomkha-media",
+      "name": "Sopa Tom Kha Gai (Media Orden)",
+      "vietName": "Tom Kha Gai (Half)",
+      "price": 108,
+      "category": "entradas",
+      "description": "Media orden de sopa Thai de coco con pollo.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "sop-phobo",
+      "name": "Pho Bo de Res (Completa)",
+      "vietName": "Pho Bo (Full)",
+      "price": 175,
+      "category": "entradas",
+      "description": "Sopa vietnamita de res con fideos de arroz, germen de soya, hierbas de olor, cebolla morada, ajo y jengibre.",
+      "options": [
+        "Extra Fideos (+$20)"
+      ],
+      "available": true
+    },
+    {
+      "id": "sop-phobo-media",
+      "name": "Pho Bo de Res (Media Orden)",
+      "vietName": "Pho Bo (Half)",
+      "price": 108,
+      "category": "entradas",
+      "description": "Media orden de sopa vietnamita de res con fideos.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "sop-phogha",
+      "name": "Pho Gha de Pollo (Completa)",
+      "vietName": "Pho Gha (Full)",
+      "price": 155,
+      "category": "entradas",
+      "description": "Sopa vietnamita de pollo con fideos de arroz, zanahoria, brócoli, germen de soya, ajo y jengibre.",
+      "options": [
+        "Extra Fideos (+$20)"
+      ],
+      "available": true
+    },
+    {
+      "id": "sop-phogha-media",
+      "name": "Pho Gha de Pollo (Media Orden)",
+      "vietName": "Pho Gha (Half)",
+      "price": 98,
+      "category": "entradas",
+      "description": "Media orden de sopa vietnamita de pollo.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "sop-ramen",
+      "name": "Miso Ramen (Completa)",
+      "vietName": "Miso Ramen (Full)",
+      "price": 165,
+      "category": "entradas",
+      "description": "Sopa de miso con fideos de huevo, carne de cerdo, wakame, do chua y dashi.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "sop-ramen-media",
+      "name": "Miso Ramen (Media Orden)",
+      "vietName": "Miso Ramen (Half)",
+      "price": 104,
+      "category": "entradas",
+      "description": "Media orden de ramen con sopa de miso y fideos de huevo.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "fid-pollo-ajonjo",
+      "name": "Tazón Fideos Fríos Pollo Ajonjolí",
+      "vietName": "Chicken Cold Noodles w/ Sesame",
+      "price": 153,
+      "category": "pho",
+      "description": "Fideos de soya con aderezo de ajonjolí, pollo, brócoli, camotes fritos, pepinos frescos, hierbas de olor y col morada.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "fid-bunthit",
+      "name": "Tazón Fideos Fríos Bun Thit Nuong",
+      "vietName": "Bun Thit Nuong",
+      "price": 158,
+      "category": "pho",
+      "description": "Fideos de soya con cerdo BBQ, aderezo bun, germen de soya, verduras en escabeche, col morada, cacahuates y un rollito crujiente de cerdo.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "fid-tofu-coco",
+      "name": "Tazón Fideos Fríos Tofu Coco",
+      "vietName": "Coconut Tofu Cold Noodles",
+      "price": 163,
+      "category": "pho",
+      "description": "Fideos de soya con aderezo de ajonjolí, tofu crujiente de coco, brócoli, camotes fritos, pepinos frescos, hierbas de olor y verduras en escabeche.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "tac-camaron",
+      "name": "Tacos de Camarón (2 pzas)",
+      "vietName": "Shrimp Tacos",
+      "price": 135,
+      "category": "entradas",
+      "description": "2 Tacos en tortilla de harina con camarones empanizados al coco, sambal alioli, zanahoria, col morada, cilantro y ensalada de col al lado.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "bur-pollo-tofu",
+      "name": "Burrito de Pollo o Tofu",
+      "vietName": "Chicken or Tofu Burrito",
+      "price": 127,
+      "category": "entradas",
+      "description": "Con salsa de cacahuate, en tortilla de harina, lechuga, pepino, germen de soya, zanahoria, hierbas de olor y cacahuates, acompañado de camotes fritos.",
+      "options": [
+        "Elegir Pollo",
+        "Elegir Tofu"
+      ],
+      "available": true
+    },
+    {
+      "id": "bm-cerdo",
+      "name": "Bánh Mì Cerdo",
+      "vietName": "Bánh Mì Pork",
+      "price": 142,
+      "category": "banhmi",
+      "description": "Baguette con cerdo, sambal alioli, verduras en escabeche, pepinos frescos, cilantro y guarnición de camotes fritos.",
+      "options": [
+        "Sin cilantro",
+        "Sin jalapeño"
+      ],
+      "available": true
+    },
+    {
+      "id": "bm-tofu",
+      "name": "Bánh Mì Tofu Crujiente",
+      "vietName": "Bánh Mì Crispy Tofu",
+      "price": 137,
+      "category": "banhmi",
+      "description": "Baguette con tofu crujiente, sambal alioli, verduras en escabeche, pepinos frescos, cilantro y guarnición de camotes fritos.",
+      "options": [
+        "Sin cilantro",
+        "Sin jalapeño"
+      ],
+      "available": true
+    },
+    {
+      "id": "bm-pollo",
+      "name": "Bánh Mì Pollo",
+      "vietName": "Bánh Mì Chicken",
+      "price": 137,
+      "category": "banhmi",
+      "description": "Baguette con pollo, sambal alioli, verduras en escabeche, pepinos frescos, cilantro y guarnición de camotes fritos.",
+      "options": [
+        "Sin cilantro",
+        "Sin jalapeño"
+      ],
+      "available": true
+    },
+    {
+      "id": "bm-camaron",
+      "name": "Bánh Mì Camarón",
+      "vietName": "Bánh Mì Shrimp",
+      "price": 157,
+      "category": "banhmi",
+      "description": "Baguette con camarón, sambal alioli, verduras en escabeche, pepinos frescos, cilantro y guarnición de camotes fritos.",
+      "options": [
+        "Sin cilantro",
+        "Sin jalapeño"
+      ],
+      "available": true
+    },
+    {
+      "id": "bm-arrachera",
+      "name": "Bánh Mì Arrachera",
+      "vietName": "Bánh Mì Beef",
+      "price": 152,
+      "category": "banhmi",
+      "description": "Baguette con arrachera, sambal alioli, verduras en escabeche, pepinos frescos, cilantro y guarnición de camotes fritos.",
+      "options": [
+        "Sin cilantro",
+        "Sin jalapeño"
+      ],
+      "available": true
+    },
+    {
+      "id": "ext-pollo-tofu",
+      "name": "Extra Pollo o Tofu",
+      "vietName": "Extra Chicken/Tofu",
+      "price": 60,
+      "category": "entradas",
+      "description": "Orden extra de proteína.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ext-arrachera-camaron",
+      "name": "Extra Arrachera o Camarón",
+      "vietName": "Extra Beef/Shrimp",
+      "price": 70,
+      "category": "entradas",
+      "description": "Orden extra de proteína premium.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ext-arroz",
+      "name": "Extra Arroz",
+      "vietName": "Extra Rice",
+      "price": 65,
+      "category": "entradas",
+      "description": "Orden extra de arroz.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ext-camote",
+      "name": "Extra Camote",
+      "vietName": "Extra Sweet Potato",
+      "price": 65,
+      "category": "entradas",
+      "description": "Orden extra de camotes fritos.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "ext-llevar",
+      "name": "Contenedor para llevar",
+      "vietName": "Takeaway container",
+      "price": 6,
+      "category": "entradas",
+      "description": "Contenedor adicional para empaque.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-limonada",
+      "name": "Limonada",
+      "vietName": "Lemonade",
+      "price": 50,
+      "category": "bebidas",
+      "description": "Limonada fresca natural.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-naranjada",
+      "name": "Naranjada",
+      "vietName": "Orangeade",
+      "price": 50,
+      "category": "bebidas",
+      "description": "Naranjada fresca natural.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-coca",
+      "name": "Coca Cola",
+      "vietName": "Coca Cola",
+      "price": 50,
+      "category": "bebidas",
+      "description": "Refresco tradicional.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-ginger",
+      "name": "Ginger Ale",
+      "vietName": "Ginger Ale",
+      "price": 50,
+      "category": "bebidas",
+      "description": "Refresco de jengibre.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-agua-min",
+      "name": "Agua Mineral",
+      "vietName": "Sparkling water",
+      "price": 50,
+      "category": "bebidas",
+      "description": "Agua mineral con gas.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-te-helado",
+      "name": "Te Helado",
+      "vietName": "Iced tea",
+      "price": 60,
+      "category": "bebidas",
+      "description": "Té helado clásico.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-limonada-jen",
+      "name": "Limonada de Jengibre",
+      "vietName": "Ginger lemonade",
+      "price": 60,
+      "category": "bebidas",
+      "description": "Limonada fresca con toque de jengibre.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-limonada-fresa",
+      "name": "Limonada de Fresa Albahaca",
+      "vietName": "Strawberry and basil lemonade",
+      "price": 60,
+      "category": "bebidas",
+      "description": "Limonada combinada con fresa y albahaca fresca.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-limonada-pep",
+      "name": "Limonada de Pepino Menta",
+      "vietName": "Cucumber and mint lemonade",
+      "price": 60,
+      "category": "bebidas",
+      "description": "Limonada combinada con pepino y menta fresca.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-kombucha",
+      "name": "Kombucha",
+      "vietName": "Kombucha",
+      "price": 65,
+      "category": "bebidas",
+      "description": "Bebida fermentada saludable.",
+      "options": [],
+      "available": true
+    },
+    {
+      "id": "beb-agua",
+      "name": "Botella de agua",
+      "vietName": "Bottled water",
+      "price": 25,
+      "category": "bebidas",
+      "description": "Agua embotellada purificada.",
+      "options": [],
+      "available": true
+    }
+  ],
+  "tables": [
+    {
+      "id": 1,
+      "name": "Mesa 1",
+      "status": "free",
+      "currentOrder": null
+    },
+    {
+      "id": 2,
+      "name": "Mesa 2",
+      "status": "free",
+      "currentOrder": null
+    },
+    {
+      "id": 3,
+      "name": "Mesa 3",
+      "status": "free",
+      "currentOrder": null
+    },
+    {
+      "id": 4,
+      "name": "Mesa 4",
+      "status": "free",
+      "currentOrder": null
+    },
+    {
+      "id": 5,
+      "name": "Mesa 5",
+      "status": "occupied",
+      "currentOrder": {
+        "items": [
+          {
+            "productId": "ent-miso",
+            "name": "Sopa Miso Clásica",
+            "price": 95,
+            "quantity": 1,
+            "options": [],
+            "notes": ""
+          },
+          {
+            "productId": "beb-naranjada",
+            "name": "Naranjada",
+            "price": 50,
+            "quantity": 1,
+            "options": [],
+            "notes": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "name": "Mesa 6",
+      "status": "occupied",
+      "currentOrder": {
+        "items": [
+          {
+            "productId": "ent-miso",
+            "name": "Sopa Miso Clásica",
+            "price": 95,
+            "quantity": 1,
+            "options": [],
+            "notes": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "name": "Mesa 7",
+      "status": "occupied",
+      "currentOrder": {
+        "items": [
+          {
+            "productId": "ent-miso",
+            "name": "Sopa Miso Clásica",
+            "price": 95,
+            "quantity": 1,
+            "options": [],
+            "notes": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "name": "Mesa 8",
+      "status": "free",
+      "currentOrder": null
+    }
+  ],
+  "sales": []
+}
