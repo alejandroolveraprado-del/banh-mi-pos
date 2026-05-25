@@ -11,8 +11,24 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'database.json');
 
+function getAutoShiftName() {
+  const hour = new Date().getHours();
+  if (hour >= 16 && hour < 22) {
+    return "Vespertino";
+  }
+  return "Matutino";
+}
+
 // Cargar estado inicial desde database.json
-let db = { settings: { masterPin: "1234", taxRate: 0.16, serviceRate: 0.10 }, menu: [], tables: [], sales: [] };
+let db = { 
+  settings: { masterPin: "1234", taxRate: 0.16, serviceRate: 0.10, defaultInitialCash: 1000 }, 
+  menu: [], 
+  tables: [], 
+  sales: [],
+  expenses: [],
+  activeShift: null,
+  closedShifts: []
+};
 
 function loadDatabase() {
   try {
@@ -20,7 +36,39 @@ function loadDatabase() {
       const data = fs.readFileSync(DB_FILE, 'utf8');
       db = JSON.parse(data);
       console.log('Base de datos cargada correctamente.');
+      
+      // Inicializar campos si no existen
+      if (!db.settings.defaultInitialCash) db.settings.defaultInitialCash = 1000;
+      if (!db.expenses) db.expenses = [];
+      if (!db.closedShifts) db.closedShifts = [];
+      if (!db.categories) {
+        db.categories = [
+          { id: "banhmi", name: "Bánh Mì" },
+          { id: "pho", name: "Phở" },
+          { id: "entradas", name: "Khai Vị (Entradas)" },
+          { id: "bebidas", name: "Bebidas" }
+        ];
+      }
+      if (!db.activeShift) {
+        db.activeShift = {
+          name: getAutoShiftName(),
+          startedAt: new Date().toISOString(),
+          initialCash: db.settings.defaultInitialCash
+        };
+        saveDatabase();
+      }
     } else {
+      db.categories = [
+        { id: "banhmi", name: "Bánh Mì" },
+        { id: "pho", name: "Phở" },
+        { id: "entradas", name: "Khai Vị (Entradas)" },
+        { id: "bebidas", name: "Bebidas" }
+      ];
+      db.activeShift = {
+        name: getAutoShiftName(),
+        startedAt: new Date().toISOString(),
+        initialCash: 1000
+      };
       saveDatabase();
       console.log('Base de datos creada por defecto.');
     }
@@ -61,12 +109,16 @@ wss.on('connection', (ws) => {
     type: 'INITIAL_STATE',
     payload: {
       menu: db.menu,
+      categories: db.categories,
       tables: db.tables,
       settings: {
         taxRate: db.settings.taxRate,
-        serviceRate: db.settings.serviceRate
+        serviceRate: db.settings.serviceRate,
+        defaultInitialCash: db.settings.defaultInitialCash
       },
-      // Solo enviamos un resumen de ventas para no saturar al cliente
+      activeShift: db.activeShift,
+      expenses: db.expenses || [],
+      closedShifts: db.closedShifts || [],
       salesCount: db.sales.length,
       salesToday: calculateSalesToday()
     }
@@ -78,7 +130,7 @@ wss.on('connection', (ws) => {
       console.log(`Evento recibido: ${type}`);
 
       // Para acciones administrativas se requiere validar el PIN
-      const isAdminAction = ['MENU_UPDATE', 'GET_SALES_REPORT', 'UPDATE_SETTINGS'].includes(type);
+      const isAdminAction = ['MENU_UPDATE', 'GET_SALES_REPORT', 'UPDATE_SETTINGS', 'CLOSE_SHIFT', 'CATEGORIES_UPDATE', 'UPDATE_HISTORICAL_DATA'].includes(type);
       if (isAdminAction && pin !== db.settings.masterPin) {
         ws.send(JSON.stringify({ type: 'ERROR', payload: 'No autorizado. PIN inválido.' }));
         return;
@@ -89,6 +141,12 @@ wss.on('connection', (ws) => {
           // payload: { tableId, currentOrder, status }
           const tableIndex = db.tables.findIndex(t => t.id === payload.tableId);
           if (tableIndex !== -1) {
+            const oldOrder = db.tables[tableIndex].currentOrder;
+            if (payload.currentOrder && (!oldOrder || !oldOrder.items || oldOrder.items.length === 0)) {
+              payload.currentOrder.shiftOpened = db.activeShift.name;
+            } else if (payload.currentOrder) {
+              payload.currentOrder.shiftOpened = (oldOrder && oldOrder.shiftOpened) || db.activeShift.name;
+            }
             db.tables[tableIndex].currentOrder = payload.currentOrder;
             db.tables[tableIndex].status = payload.status; // 'free' | 'occupied' | 'billing'
             saveDatabase();
@@ -98,7 +156,7 @@ wss.on('connection', (ws) => {
           break;
 
         case 'PAY_ORDER':
-          // payload: { tableId, paymentMethod, discount }
+          // payload: { tableId, paymentMethod, discount, tip, tipPaymentMethod }
           const table = db.tables.find(t => t.id === payload.tableId);
           if (table && table.currentOrder) {
             // Registrar venta
@@ -114,6 +172,12 @@ wss.on('connection', (ws) => {
               discount: payload.discount || 0,
               total: orderTotal.total,
               paymentMethod: payload.paymentMethod, // 'cash' | 'card' | 'qr'
+              tip: Number(payload.tip || 0),
+              tipPaymentMethod: payload.tipPaymentMethod || 'cash', // 'cash' | 'card'
+              shift: db.activeShift.name,
+              shiftStartedAt: db.activeShift.startedAt,
+              openedInShift: table.currentOrder.shiftOpened || db.activeShift.name,
+              closed: false,
               date: new Date().toISOString()
             };
 
@@ -133,9 +197,107 @@ wss.on('connection', (ws) => {
                 salesToday: calculateSalesToday()
               }
             });
+            // Enviar el nuevo estado de ventas y propinas
+            broadcast({ type: 'SALES_LIST_UPDATE', payload: db.sales });
             // Si el cliente que pagó espera una confirmación, le mandamos el recibo registrado
             ws.send(JSON.stringify({ type: 'PAY_SUCCESS', payload: newSale }));
           }
+          break;
+
+        case 'ADD_EXPENSE':
+          // payload: { description, amount }
+          const newExpense = {
+            id: 'expense-' + Date.now(),
+            description: payload.description,
+            amount: Number(payload.amount),
+            shift: db.activeShift.name,
+            shiftStartedAt: db.activeShift.startedAt,
+            closed: false,
+            date: new Date().toISOString()
+          };
+          db.expenses.push(newExpense);
+          saveDatabase();
+          broadcast({ type: 'EXPENSES_UPDATE', payload: db.expenses });
+          break;
+
+        case 'CLOSE_SHIFT':
+          // payload: { nextInitialCash }
+          // Recopilar ventas y gastos no cerrados del turno actual
+          const currentSales = db.sales.filter(s => !s.closed && s.shift === db.activeShift.name);
+          const currentExpenses = db.expenses.filter(e => !e.closed && e.shift === db.activeShift.name);
+
+          const cashSales = currentSales.filter(s => s.paymentMethod === 'cash').reduce((sum, s) => sum + s.total, 0);
+          const cardSales = currentSales.filter(s => s.paymentMethod === 'card').reduce((sum, s) => sum + s.total, 0);
+          const qrSales = currentSales.filter(s => s.paymentMethod === 'qr').reduce((sum, s) => sum + s.total, 0);
+          
+          const cashTips = currentSales.filter(s => s.tipPaymentMethod === 'cash').reduce((sum, s) => sum + s.tip, 0);
+          const cardTips = currentSales.filter(s => s.tipPaymentMethod === 'card').reduce((sum, s) => sum + s.tip, 0);
+          
+          const totalExpenses = currentExpenses.reduce((sum, e) => sum + e.amount, 0);
+          const totalSales = cashSales + cardSales + qrSales;
+          const totalTips = cashTips + cardTips;
+          
+          // Calcular propina cruzada a entregar a personal del turno anterior (50%)
+          const crossShiftTipsOut = currentSales.filter(s => s.openedInShift && s.openedInShift !== db.activeShift.name).reduce((sum, s) => sum + s.tip * 0.5, 0);
+          const activeShiftTips = Math.max(0, totalTips - crossShiftTipsOut);
+
+          // Total caja: Caja Inicial + Efectivo Ventas + Efectivo Propinas - Gastos
+          const expectedCash = db.activeShift.initialCash + cashSales + cashTips - totalExpenses;
+
+          const shiftReport = {
+            id: 'shift-' + Date.now(),
+            name: db.activeShift.name,
+            startedAt: db.activeShift.startedAt,
+            closedAt: new Date().toISOString(),
+            initialCash: db.activeShift.initialCash,
+            cashSales,
+            cardSales,
+            qrSales,
+            totalSales,
+            cashTips,
+            cardTips,
+            totalTips,
+            crossShiftTipsOut,
+            tipCocina: activeShiftTips * 0.5,
+            tipMeseros: activeShiftTips * 0.5,
+            totalExpenses,
+            expectedCash,
+            salesCount: currentSales.length,
+            expenses: currentExpenses,
+            sales: currentSales
+          };
+
+          // Registrar turno cerrado
+          db.closedShifts.push(shiftReport);
+
+          // Marcar ventas y gastos como cerrados
+          db.sales.forEach(s => {
+            if (!s.closed && s.shift === db.activeShift.name) s.closed = true;
+          });
+          db.expenses.forEach(e => {
+            if (!e.closed && e.shift === db.activeShift.name) e.closed = true;
+          });
+
+          // Determinar nuevo turno
+          const nextShiftName = getAutoShiftName();
+          db.activeShift = {
+            name: nextShiftName,
+            startedAt: new Date().toISOString(),
+            initialCash: expectedCash // El fondo inicial siempre es el final del turno anterior
+          };
+
+          saveDatabase();
+
+          // Broadcast actualización de turno y base de datos a todos
+          broadcast({
+            type: 'SHIFT_STATE_UPDATE',
+            payload: {
+              activeShift: db.activeShift,
+              expenses: db.expenses,
+              closedShifts: db.closedShifts,
+              sales: db.sales
+            }
+          });
           break;
 
         case 'MENU_UPDATE':
@@ -145,9 +307,72 @@ wss.on('connection', (ws) => {
           broadcast({ type: 'MENU_UPDATE', payload: db.menu });
           break;
 
+        case 'CATEGORIES_UPDATE':
+          // payload: completo array de categorías modificado
+          db.categories = payload;
+          saveDatabase();
+          broadcast({ type: 'CATEGORIES_UPDATE', payload: db.categories });
+          break;
+
+        case 'UPDATE_HISTORICAL_DATA': {
+          const { target, id, updatedRecord } = payload;
+          if (target === 'sales') {
+            const idx = db.sales.findIndex(s => s.id === id);
+            if (idx !== -1) {
+              db.sales[idx] = { ...db.sales[idx], ...updatedRecord };
+            }
+          } else if (target === 'expenses') {
+            const idx = db.expenses.findIndex(e => e.id === id);
+            if (idx !== -1) {
+              db.expenses[idx] = { ...db.expenses[idx], ...updatedRecord };
+            }
+          } else if (target === 'closedShifts') {
+            const idx = db.closedShifts.findIndex(c => c.id === id);
+            if (idx !== -1) {
+              db.closedShifts[idx] = { ...db.closedShifts[idx], ...updatedRecord };
+            }
+          }
+          saveDatabase();
+          // Broadcast full updated sales report to all Maestros
+          broadcast({
+            type: 'SALES_REPORT',
+            payload: {
+              sales: db.sales,
+              expenses: db.expenses,
+              closedShifts: db.closedShifts
+            }
+          });
+          break;
+        }
+
+        case 'UPDATE_SETTINGS':
+          // payload: { defaultInitialCash }
+          if (payload.defaultInitialCash !== undefined) {
+            db.settings.defaultInitialCash = Number(payload.defaultInitialCash);
+            // Siempre actualizar la caja inicial del turno activo actual para reflejar el cambio de inmediato
+            db.activeShift.initialCash = db.settings.defaultInitialCash;
+          }
+          saveDatabase();
+          // Broadcast la actualización a todos
+          broadcast({
+            type: 'SETTINGS_UPDATE',
+            payload: {
+              settings: db.settings,
+              activeShift: db.activeShift
+            }
+          });
+          break;
+
         case 'GET_SALES_REPORT':
           // Enviar reporte completo al Maestro
-          ws.send(JSON.stringify({ type: 'SALES_REPORT', payload: db.sales }));
+          ws.send(JSON.stringify({ 
+            type: 'SALES_REPORT', 
+            payload: {
+              sales: db.sales,
+              expenses: db.expenses,
+              closedShifts: db.closedShifts
+            }
+          }));
           break;
 
         case 'PING':

@@ -565,7 +565,7 @@ input, button, select {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  height: 0;
+  min-height: 0;
 }
 
 .order-panel-body.disabled {
@@ -603,7 +603,6 @@ input, button, select {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-  height: 0;
 }
 .tab-content.active {
   display: flex;
@@ -755,6 +754,7 @@ input, button, select {
   overflow-x: auto;
   padding-bottom: 10px;
   margin-bottom: 15px;
+  flex-shrink: 0;
 }
 
 .menu-cat-btn {
@@ -781,7 +781,7 @@ input, button, select {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  height: 0;
+  min-height: 0;
 }
 
 .menu-item-card {
@@ -1499,3 +1499,108 @@ input:checked + .slider:before {
     font-size: 10px;
   }
 }
+
+/* ==========================================
+   ESTILOS DE CONTROL DE CAJA Y REPORTES
+   ========================================== */
+.caja-manager-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 20px;
+  height: calc(100vh - 160px);
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 20px;
+}
+
+@media (max-width: 900px) {
+  .caja-manager-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+.caja-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+}
+
+.caja-card:hover {
+  border-color: rgba(22, 142, 90, 0.3);
+  box-shadow: var(--shadow-lg);
+}
+
+.cajero-tab-btn {
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+}
+
+.cajero-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #fff !important;
+}
+
+.cajero-tab-btn.active:hover {
+  background: var(--color-jade-light) !important;
+}
+
+.financials-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 800px) {
+  .financials-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+table th {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+table td {
+  color: var(--text-primary);
+}
+
+table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ==========================================
+   ESTILOS DE CONTENEDORES DE PESTAÑAS
+   ========================================== */
+.cajero-tab-panel {
+  display: none;
+  height: calc(100vh - 150px);
+  min-height: 0;
+  overflow: hidden;
+}
+.cajero-tab-panel.active {
+  display: block;
+}
+
+/* ==========================================
+   ESTILOS DE CELDAS DE PROPINAS SELECCIONABLES
+   ========================================== */
+.clickable-tip-cell {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.clickable-tip-cell:hover {
+  background: rgba(244, 196, 48, 0.1) !important;
+  color: var(--color-gold) !important;
+}
+.clickable-tip-cell.selected-tip {
+  background: rgba(244, 196, 48, 0.25) !important;
+  color: var(--color-gold) !important;
+  font-weight: bold;
+  outline: 1px solid var(--color-gold);
+}
+

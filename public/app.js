@@ -661,6 +661,8 @@ const state = {
   selectedItemToAdd: null, // Platillo seleccionado para personalizar
   salesHistory: [],    // Historial de ventas
   isOfflineMode: false, // Flag de modo offline/local
+  categories: [],      // Categorías de menú
+  selectedTips: [],    // Propinas seleccionadas en la calculadora
   settings: {
     taxRate: 0.16,
     serviceRate: 0.10,
@@ -755,19 +757,59 @@ function connectWebSocket() {
         switch (type) {
           case 'INITIAL_STATE':
             state.menu = payload.menu;
+            state.categories = payload.categories || [];
             state.tables = payload.tables;
             state.settings.taxRate = payload.settings.taxRate;
             state.settings.serviceRate = payload.settings.serviceRate;
+            state.settings.defaultInitialCash = payload.settings.defaultInitialCash || 1000;
+            state.activeShift = payload.activeShift;
+            state.expenses = payload.expenses || [];
+            state.closedShifts = payload.closedShifts || [];
             
+            // Rellenar inputs de ajustes
+            const inputDefaultInitialCash = document.getElementById('setting-default-initial-cash');
+            if (inputDefaultInitialCash) {
+              inputDefaultInitialCash.value = state.settings.defaultInitialCash;
+            }
+            const inputNextInitialCash = document.getElementById('next-initial-cash');
+            if (inputNextInitialCash) {
+              inputNextInitialCash.value = state.settings.defaultInitialCash;
+            }
+
             updateDashboardStats(payload.salesCount, payload.salesToday);
             renderTables();
+            renderCategoryTabs();
+            populateCategoryDropdowns();
+            renderCategoryEditor();
             renderMenu();
             renderMenuEditor();
             renderLiveTablesStatus();
+            renderExpenses();
+            renderShiftBalance();
+            renderFinancialReports();
             
             if (state.activeTableId) {
               updateOrderPanel();
             }
+            break;
+
+          case 'SETTINGS_UPDATE':
+            if (payload.settings) {
+              state.settings = { ...state.settings, ...payload.settings };
+            }
+            if (payload.activeShift) {
+              state.activeShift = payload.activeShift;
+            }
+            const settingInput = document.getElementById('setting-default-initial-cash');
+            if (settingInput) {
+              settingInput.value = state.settings.defaultInitialCash;
+            }
+            const nextInput = document.getElementById('next-initial-cash');
+            if (nextInput) {
+              nextInput.value = state.settings.defaultInitialCash;
+            }
+            renderShiftBalance();
+            alert('Ajustes guardados y sincronizados con éxito.');
             break;
 
           case 'TABLE_STATUS_UPDATE':
@@ -785,13 +827,56 @@ function connectWebSocket() {
             renderMenuEditor();
             break;
 
+          case 'CATEGORIES_UPDATE':
+            state.categories = payload;
+            renderCategoryTabs();
+            populateCategoryDropdowns();
+            renderCategoryEditor();
+            renderMenuEditor();
+            break;
+
           case 'SALES_UPDATE':
             updateDashboardStats(payload.salesCount, payload.salesToday);
             break;
 
           case 'SALES_REPORT':
+            state.salesHistory = payload.sales || [];
+            state.expenses = payload.expenses || [];
+            state.closedShifts = payload.closedShifts || [];
+            renderSalesHistory();
+            renderShiftBalance();
+            renderFinancialReports();
+            break;
+
+          case 'EXPENSES_UPDATE':
+            state.expenses = payload;
+            renderExpenses();
+            renderShiftBalance();
+            renderFinancialReports();
+            break;
+
+          case 'SHIFT_STATE_UPDATE':
+            state.activeShift = payload.activeShift;
+            state.expenses = payload.expenses || [];
+            state.closedShifts = payload.closedShifts || [];
+            state.salesHistory = payload.sales || [];
+            
+            renderExpenses();
+            renderShiftBalance();
+            renderFinancialReports();
+            renderSalesHistory();
+            
+            // Update shift labels in UI
+            document.getElementById('caja-shift-name').textContent = state.activeShift.name;
+            document.getElementById('caja-shift-start').textContent = new Date(state.activeShift.startedAt).toLocaleTimeString();
+            document.getElementById('caja-shift-initial').textContent = `$${state.activeShift.initialCash.toFixed(2)}`;
+            break;
+
+          case 'SALES_LIST_UPDATE':
             state.salesHistory = payload;
             renderSalesHistory();
+            renderShiftBalance();
+            renderFinancialReports();
             break;
 
           case 'PAY_SUCCESS':
@@ -839,13 +924,24 @@ function enableOfflineMode(reasonText) {
   
   // Cargar datos locales desde localStorage seguro o usar valores por defecto
   const localMenu = storage.getItem('local_menu');
+  const localCategories = storage.getItem('local_categories');
   const localTables = storage.getItem('local_tables');
   const localSales = storage.getItem('local_sales');
   const localSettings = storage.getItem('local_settings');
+  const localExpenses = storage.getItem('local_expenses');
+  const localClosedShifts = storage.getItem('local_closedShifts');
 
   state.menu = localMenu ? JSON.parse(localMenu) : [...DEFAULT_MENU];
+  state.categories = localCategories ? JSON.parse(localCategories) : [
+    { id: "banhmi", name: "Bánh Mì" },
+    { id: "pho", name: "Phở" },
+    { id: "entradas", name: "Khai Vị (Entradas)" },
+    { id: "bebidas", name: "Bebidas" }
+  ];
   state.tables = localTables ? JSON.parse(localTables) : [...DEFAULT_TABLES];
   state.salesHistory = localSales ? JSON.parse(localSales) : [];
+  state.expenses = localExpenses ? JSON.parse(localExpenses) : [];
+  state.closedShifts = localClosedShifts ? JSON.parse(localClosedShifts) : [];
   
   if (localSettings) {
     state.settings = JSON.parse(localSettings);
@@ -864,6 +960,9 @@ function enableOfflineMode(reasonText) {
 
   // Renderizar
   renderTables();
+  renderCategoryTabs();
+  populateCategoryDropdowns();
+  renderCategoryEditor();
   renderMenu();
   renderMenuEditor();
   renderLiveTablesStatus();
@@ -877,9 +976,12 @@ function enableOfflineMode(reasonText) {
 // Guardar estado en localStorage (Modo Offline)
 function saveLocalState() {
   storage.setItem('local_menu', JSON.stringify(state.menu));
+  storage.setItem('local_categories', JSON.stringify(state.categories));
   storage.setItem('local_tables', JSON.stringify(state.tables));
   storage.setItem('local_sales', JSON.stringify(state.salesHistory));
   storage.setItem('local_settings', JSON.stringify(state.settings));
+  storage.setItem('local_expenses', JSON.stringify(state.expenses || []));
+  storage.setItem('local_closedShifts', JSON.stringify(state.closedShifts || []));
 }
 
 function calculateSalesTodayLocal() {
@@ -890,14 +992,14 @@ function calculateSalesTodayLocal() {
 }
 
 // Enviar comandos al servidor
-function sendWSMessage(type, payload = {}) {
+function sendWSMessage(type, payload = {}, overridePin = null) {
   if (state.isOfflineMode) {
     handleLocalAction(type, payload);
     return;
   }
 
   if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-    const pin = storage.sessionGet('pos_pin');
+    const pin = overridePin || storage.sessionGet('pos_pin');
     state.ws.send(JSON.stringify({ type, payload, pin }));
   } else {
     console.warn('WebSocket desconectado. Acción redirigida a base local temporal.');
@@ -910,9 +1012,39 @@ function handleLocalAction(type, payload) {
   console.log(`Acción Local Procesada: ${type}`);
   
   switch (type) {
+    case 'UPDATE_HISTORICAL_DATA': {
+      const { target, id, updatedRecord } = payload;
+      if (target === 'sales') {
+        const idx = state.salesHistory.findIndex(s => s.id === id);
+        if (idx !== -1) {
+          state.salesHistory[idx] = { ...state.salesHistory[idx], ...updatedRecord };
+        }
+      } else if (target === 'expenses') {
+        const idx = state.expenses.findIndex(e => e.id === id);
+        if (idx !== -1) {
+          state.expenses[idx] = { ...state.expenses[idx], ...updatedRecord };
+        }
+      } else if (target === 'closedShifts') {
+        const idx = state.closedShifts.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          state.closedShifts[idx] = { ...state.closedShifts[idx], ...updatedRecord };
+        }
+      }
+      saveLocalState();
+      renderExpenses();
+      renderShiftBalance();
+      renderFinancialReports();
+      break;
+    }
     case 'ORDER_UPDATE': {
       const idx = state.tables.findIndex(t => t.id === payload.tableId);
       if (idx !== -1) {
+        const oldOrder = state.tables[idx].currentOrder;
+        if (payload.currentOrder && (!oldOrder || !oldOrder.items || oldOrder.items.length === 0)) {
+          payload.currentOrder.shiftOpened = state.activeShift ? state.activeShift.name : 'Matutino';
+        } else if (payload.currentOrder) {
+          payload.currentOrder.shiftOpened = (oldOrder && oldOrder.shiftOpened) || (state.activeShift ? state.activeShift.name : 'Matutino');
+        }
         state.tables[idx].currentOrder = payload.currentOrder;
         state.tables[idx].status = payload.status;
         saveLocalState();
@@ -943,6 +1075,12 @@ function handleLocalAction(type, payload) {
           discount: payload.discount,
           total: total,
           paymentMethod: payload.paymentMethod,
+          tip: Number(payload.tip || 0),
+          tipPaymentMethod: payload.tipPaymentMethod || 'cash',
+          shift: state.activeShift ? state.activeShift.name : 'Matutino',
+          shiftStartedAt: state.activeShift ? state.activeShift.startedAt : new Date().toISOString(),
+          openedInShift: table.currentOrder.shiftOpened || (state.activeShift ? state.activeShift.name : 'Matutino'),
+          closed: false,
           date: new Date().toISOString()
         };
 
@@ -956,6 +1094,8 @@ function handleLocalAction(type, payload) {
         renderTables();
         renderLiveTablesStatus();
         renderSalesHistory();
+        renderShiftBalance();
+        renderFinancialReports();
         
         const salesToday = calculateSalesTodayLocal();
         updateDashboardStats(state.salesHistory.length, salesToday);
@@ -968,6 +1108,102 @@ function handleLocalAction(type, payload) {
       }
       break;
     }
+    case 'ADD_EXPENSE': {
+      const newExpense = {
+        id: 'expense-loc-' + Date.now(),
+        description: payload.description,
+        amount: Number(payload.amount),
+        shift: state.activeShift.name,
+        shiftStartedAt: state.activeShift.startedAt,
+        closed: false,
+        date: new Date().toISOString()
+      };
+      if (!state.expenses) state.expenses = [];
+      state.expenses.push(newExpense);
+      saveLocalState();
+      renderExpenses();
+      renderShiftBalance();
+      renderFinancialReports();
+      break;
+    }
+    case 'CLOSE_SHIFT': {
+      if (!state.expenses) state.expenses = [];
+      if (!state.closedShifts) state.closedShifts = [];
+      
+      const currentSales = state.salesHistory.filter(s => !s.closed && s.shift === state.activeShift.name);
+      const currentExpenses = state.expenses.filter(e => !e.closed && e.shift === state.activeShift.name);
+
+      const cashSales = currentSales.filter(s => s.paymentMethod === 'cash').reduce((sum, s) => sum + s.total, 0);
+      const cardSales = currentSales.filter(s => s.paymentMethod === 'card').reduce((sum, s) => sum + s.total, 0);
+      const qrSales = currentSales.filter(s => s.paymentMethod === 'qr').reduce((sum, s) => sum + s.total, 0);
+      
+      const cashTips = currentSales.filter(s => s.tipPaymentMethod === 'cash').reduce((sum, s) => sum + s.tip, 0);
+      const cardTips = currentSales.filter(s => s.tipPaymentMethod === 'card').reduce((sum, s) => sum + s.tip, 0);
+      
+      const totalExpenses = currentExpenses.reduce((sum, e) => sum + e.amount, 0);
+      const totalSales = cashSales + cardSales + qrSales;
+      const totalTips = cashTips + cardTips;
+      
+      const crossShiftTipsOut = currentSales.filter(s => s.openedInShift && s.openedInShift !== state.activeShift.name).reduce((sum, s) => sum + s.tip * 0.5, 0);
+      const activeShiftTips = Math.max(0, totalTips - crossShiftTipsOut);
+
+      const expectedCash = state.activeShift.initialCash + cashSales + cashTips - totalExpenses;
+
+      const shiftReport = {
+        id: 'shift-loc-' + Date.now(),
+        name: state.activeShift.name,
+        startedAt: state.activeShift.startedAt,
+        closedAt: new Date().toISOString(),
+        initialCash: state.activeShift.initialCash,
+        cashSales,
+        cardSales,
+        qrSales,
+        totalSales,
+        cashTips,
+        cardTips,
+        totalTips,
+        crossShiftTipsOut,
+        tipCocina: activeShiftTips * 0.5,
+        tipMeseros: activeShiftTips * 0.5,
+        totalExpenses,
+        expectedCash,
+        salesCount: currentSales.length,
+        expenses: currentExpenses,
+        sales: currentSales
+      };
+
+      state.closedShifts.push(shiftReport);
+
+      state.salesHistory.forEach(s => {
+        if (!s.closed && s.shift === state.activeShift.name) s.closed = true;
+      });
+      state.expenses.forEach(e => {
+        if (!e.closed && e.shift === state.activeShift.name) e.closed = true;
+      });
+
+      // Nuevo turno automático
+      const nextShiftName = (new Date().getHours() >= 16 && new Date().getHours() < 22) ? "Vespertino" : "Matutino";
+      state.activeShift = {
+        name: nextShiftName,
+        startedAt: new Date().toISOString(),
+        initialCash: expectedCash // Rollover automático del efectivo final esperado
+      };
+
+      saveLocalState();
+      
+      renderExpenses();
+      renderShiftBalance();
+      renderFinancialReports();
+      renderSalesHistory();
+      
+      // Actualizar UI del turno
+      document.getElementById('caja-shift-name').textContent = state.activeShift.name;
+      document.getElementById('caja-shift-start').textContent = new Date(state.activeShift.startedAt).toLocaleTimeString();
+      document.getElementById('caja-shift-initial').textContent = `$${state.activeShift.initialCash.toFixed(2)}`;
+      
+      alert("Turno cerrado localmente con éxito.");
+      break;
+    }
     case 'MENU_UPDATE': {
       state.menu = payload;
       saveLocalState();
@@ -977,6 +1213,33 @@ function handleLocalAction(type, payload) {
     }
     case 'GET_SALES_REPORT': {
       renderSalesHistory();
+      break;
+    }
+    case 'UPDATE_SETTINGS': {
+      state.settings.defaultInitialCash = Number(payload.defaultInitialCash || 1000);
+      // Siempre actualizar la caja inicial del turno activo actual para reflejar el cambio de inmediato
+      if (state.activeShift) {
+        state.activeShift.initialCash = state.settings.defaultInitialCash;
+      }
+      saveLocalState();
+
+      const inputDefault = document.getElementById('setting-default-initial-cash');
+      if (inputDefault) inputDefault.value = state.settings.defaultInitialCash;
+      const inputNext = document.getElementById('next-initial-cash');
+      if (inputNext) inputNext.value = state.settings.defaultInitialCash;
+
+      renderShiftBalance();
+      alert('Ajustes guardados localmente.');
+      break;
+    }
+    case 'CATEGORIES_UPDATE': {
+      state.categories = payload;
+      saveLocalState();
+      renderCategoryTabs();
+      populateCategoryDropdowns();
+      renderCategoryEditor();
+      renderMenuEditor();
+      alert('Categorías actualizadas localmente.');
       break;
     }
   }
@@ -1166,7 +1429,7 @@ function setupEventListeners() {
         const tabEl = document.getElementById(`maestro-tab-${targetTab}`);
         if (tabEl) tabEl.classList.add('active');
 
-        if (targetTab === 'history') {
+        if (targetTab === 'history' || targetTab === 'financial-reports') {
           requestSalesReport();
         }
       }
@@ -1176,6 +1439,142 @@ function setupEventListeners() {
   const refreshHistory = document.getElementById('btn-refresh-history');
   if (refreshHistory) {
     refreshHistory.addEventListener('click', requestSalesReport);
+  }
+
+  const btnAddExpense = document.getElementById('btn-add-expense');
+  if (btnAddExpense) {
+    btnAddExpense.addEventListener('click', () => {
+      const descInput = document.getElementById('expense-desc');
+      const amountInput = document.getElementById('expense-amount');
+      const description = descInput.value.trim();
+      const amount = parseFloat(amountInput.value);
+
+      if (!description || isNaN(amount) || amount <= 0) {
+        alert('Por favor introduce un concepto y un monto válido para el gasto.');
+        return;
+      }
+
+      sendWSMessage('ADD_EXPENSE', { description, amount });
+      descInput.value = '';
+      amountInput.value = '';
+    });
+  }
+
+  const btnCloseShift = document.getElementById('btn-close-shift');
+  if (btnCloseShift) {
+    btnCloseShift.addEventListener('click', () => {
+      const nextInitialCashInput = document.getElementById('next-initial-cash');
+      const nextInitialCash = parseFloat(nextInitialCashInput.value || 1000);
+
+      const pin = prompt('Ingresa el PIN Maestro para autorizar el Cierre de Turno:');
+      if (!pin) return;
+
+      if (pin !== state.settings.masterPin) {
+        alert('PIN Maestro incorrecto. Cierre de turno cancelado.');
+        return;
+      }
+
+      sendWSMessage('CLOSE_SHIFT', { nextInitialCash }, pin);
+    });
+  }
+
+  const btnSaveSettings = document.getElementById('btn-save-settings');
+  if (btnSaveSettings) {
+    btnSaveSettings.addEventListener('click', () => {
+      const defaultInitialCashInput = document.getElementById('setting-default-initial-cash');
+      const defaultInitialCash = parseFloat(defaultInitialCashInput.value || 1000);
+
+      if (isNaN(defaultInitialCash) || defaultInitialCash < 0) {
+        alert('Por favor introduce un monto de fondo inicial válido.');
+        return;
+      }
+
+      sendWSMessage('UPDATE_SETTINGS', { defaultInitialCash });
+      alert('Guardando ajustes...');
+    });
+  }
+
+  const btnAddMenuItem = document.getElementById('btn-add-menu-item');
+  if (btnAddMenuItem) {
+    btnAddMenuItem.addEventListener('click', () => {
+      const nameInput = document.getElementById('new-item-name');
+      const vietNameInput = document.getElementById('new-item-vietname');
+      const priceInput = document.getElementById('new-item-price');
+      const categoryInput = document.getElementById('new-item-category');
+      const descInput = document.getElementById('new-item-desc');
+
+      const name = nameInput.value.trim();
+      const vietName = vietNameInput.value.trim();
+      const price = parseFloat(priceInput.value);
+      const category = categoryInput.value;
+      const description = descInput.value.trim();
+
+      if (!name || isNaN(price) || price < 0) {
+        alert('Por favor completa los campos del platillo correctamente. Nombre y Precio son requeridos.');
+        return;
+      }
+
+      const id = 'item-' + Date.now();
+      const newItem = {
+        id,
+        name,
+        vietName: vietName || name,
+        price,
+        category,
+        description,
+        options: [],
+        available: true
+      };
+
+      state.menu.push(newItem);
+      sendWSMessage('MENU_UPDATE', state.menu);
+
+      nameInput.value = '';
+      vietNameInput.value = '';
+      priceInput.value = '';
+      descInput.value = '';
+
+      alert(`Platillo "${name}" agregado con éxito.`);
+    });
+  }
+
+  const btnAddCategory = document.getElementById('btn-add-category');
+  if (btnAddCategory) {
+    btnAddCategory.addEventListener('click', () => {
+      const nameInput = document.getElementById('new-category-name');
+      const name = nameInput.value.trim();
+
+      if (!name) {
+        alert('Por favor introduce un nombre para la nueva categoría.');
+        return;
+      }
+
+      const id = name.toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+
+      if (state.categories.some(c => c.id === id)) {
+        alert('Ya existe una categoría con el mismo nombre.');
+        return;
+      }
+
+      state.categories.push({ id, name });
+      sendWSMessage('CATEGORIES_UPDATE', state.categories);
+      nameInput.value = '';
+      alert(`Categoría "${name}" agregada con éxito.`);
+    });
+  }
+
+  const btnClearTipCalc = document.getElementById('btn-clear-tip-calculator');
+  if (btnClearTipCalc) {
+    btnClearTipCalc.addEventListener('click', () => {
+      state.selectedTips = [];
+      renderWeeklyTipsTable();
+      renderTipCalculator();
+    });
   }
 }
 
@@ -1426,6 +1825,99 @@ function updateOrderPanel() {
 }
 
 // ==========================================
+// FUNCIONES DE GESTIÓN DE CATEGORÍAS EN VIVO
+// ==========================================
+function renderCategoryTabs() {
+  const container = document.getElementById('menu-categories-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const allBtn = document.createElement('button');
+  allBtn.className = `menu-cat-btn ${state.activeCategory === 'all' ? 'active' : ''}`;
+  allBtn.dataset.category = 'all';
+  allBtn.textContent = 'Todos';
+  container.appendChild(allBtn);
+
+  state.categories.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = `menu-cat-btn ${state.activeCategory === cat.id ? 'active' : ''}`;
+    btn.dataset.category = cat.id;
+    btn.textContent = cat.name;
+    container.appendChild(btn);
+  });
+}
+
+function populateCategoryDropdowns() {
+  const selectNewItem = document.getElementById('new-item-category');
+  if (selectNewItem) {
+    selectNewItem.innerHTML = '';
+    state.categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      selectNewItem.appendChild(opt);
+    });
+  }
+}
+
+function renderCategoryEditor() {
+  const container = document.getElementById('category-manager-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (state.categories.length === 0) {
+    container.innerHTML = '<p class="text-muted" style="font-size:12px; font-style:italic; color: rgba(255,255,255,0.4);">No hay categorías registradas.</p>';
+    return;
+  }
+
+  state.categories.forEach(cat => {
+    const div = document.createElement('div');
+    div.style = 'display: flex; gap: 10px; align-items: center;';
+    div.innerHTML = `
+      <span style="font-size: 0.85rem; color: rgba(255,255,255,0.4); width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace;">[${cat.id}]</span>
+      <input type="text" id="cat-name-input-${cat.id}" value="${cat.name}" style="flex: 1; padding: 6px 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.9rem;">
+      <button onclick="saveCategoryName('${cat.id}')" class="btn btn-primary" style="padding: 6px 12px; font-size: 11px; display: flex; align-items: center; gap: 4px;">
+        <i class="fa-solid fa-save"></i> Renombrar
+      </button>
+      <button onclick="deleteCategory('${cat.id}')" class="btn btn-danger" style="padding: 6px 12px; font-size: 11px; background: #ea4335; border: none; display: flex; align-items: center; gap: 4px; color: white;">
+        <i class="fa-solid fa-trash"></i> Eliminar
+      </button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+window.saveCategoryName = function(catId) {
+  const input = document.getElementById(`cat-name-input-${catId}`);
+  if (!input) return;
+  const newName = input.value.trim();
+
+  if (!newName) {
+    alert('El nombre de la categoría no puede estar vacío.');
+    return;
+  }
+
+  const cat = state.categories.find(c => c.id === catId);
+  if (cat) {
+    cat.name = newName;
+    sendWSMessage('CATEGORIES_UPDATE', state.categories);
+  }
+};
+
+window.deleteCategory = function(catId) {
+  const count = state.menu.filter(item => item.category === catId).length;
+  if (count > 0) {
+    alert(`No se puede eliminar la categoría porque hay ${count} platillo(s) asignados a ella. Reasigna los platillos a otra categoría primero.`);
+    return;
+  }
+
+  if (confirm('¿Estás seguro de que deseas eliminar esta categoría?')) {
+    state.categories = state.categories.filter(c => c.id !== catId);
+    sendWSMessage('CATEGORIES_UPDATE', state.categories);
+  }
+};
+
+// ==========================================
 // CONTROL DE ÓRDENES Y CATALOGO
 // ==========================================
 function renderMenu() {
@@ -1584,6 +2076,10 @@ function openCheckoutModal() {
   document.getElementById('chk-tax').textContent = formatCurrency(tax);
   document.getElementById('chk-service').textContent = formatCurrency(service);
   document.getElementById('chk-discount').value = 0;
+  document.getElementById('chk-tip').value = '';
+  const defaultTipMethod = document.querySelector('input[name="chk-tip-method"][value="cash"]');
+  if (defaultTipMethod) defaultTipMethod.checked = true;
+  
   document.getElementById('chk-total').textContent = formatCurrency(subtotal); // No sumamos el servicio por ser sugerido
 
   document.querySelectorAll('.pay-method-card').forEach(c => c.classList.remove('active'));
@@ -1614,6 +2110,8 @@ function executePayment() {
   const activePayMethodCard = document.querySelector('.pay-method-card.active');
   const paymentMethod = activePayMethodCard ? activePayMethodCard.dataset.method : 'cash';
   const discount = parseFloat(document.getElementById('chk-discount').value) || 0;
+  const tip = parseFloat(document.getElementById('chk-tip').value) || 0;
+  const tipPaymentMethod = document.querySelector('input[name="chk-tip-method"]:checked').value;
 
   const modal = document.getElementById('checkout-modal');
   if (modal) modal.classList.remove('active');
@@ -1621,7 +2119,9 @@ function executePayment() {
   sendWSMessage('PAY_ORDER', {
     tableId: table.id,
     paymentMethod: paymentMethod,
-    discount: discount
+    discount: discount,
+    tip: tip,
+    tipPaymentMethod: tipPaymentMethod
   });
 }
 
@@ -1737,21 +2237,21 @@ function renderMenuEditor() {
   state.menu.forEach((item, index) => {
     const row = document.createElement('div');
     row.className = 'menu-editor-row';
-    
-    const catLabels = {
-      banhmi: 'Bánh Mì',
-      pho: 'Phở',
-      entradas: 'Khai Vị (Entradas)',
-      bebidas: 'Bebidas'
-    };
-    const catText = catLabels[item.category] || item.category;
+
+    const optionsHtml = state.categories.map(cat => 
+      `<option value="${cat.id}" ${item.category === cat.id ? 'selected' : ''}>${cat.name}</option>`
+    ).join('');
 
     row.innerHTML = `
       <div class="platillo-detail">
         <span class="p-name">${item.name}</span>
         <span class="p-viet">${item.vietName}</span>
       </div>
-      <span>${catText}</span>
+      <div>
+        <select id="cat-select-${index}" style="padding: 4px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px;">
+          ${optionsHtml}
+        </select>
+      </div>
       <div>
         <input type="number" value="${item.price}" min="0" step="1" id="price-input-${index}">
       </div>
@@ -1774,6 +2274,7 @@ function renderMenuEditor() {
 window.saveMenuItemChanges = function(index) {
   const priceVal = parseFloat(document.getElementById(`price-input-${index}`).value);
   const availVal = document.getElementById(`avail-check-${index}`).checked;
+  const catVal = document.getElementById(`cat-select-${index}`).value;
 
   if (isNaN(priceVal) || priceVal < 0) {
     alert('Precio inválido.');
@@ -1782,6 +2283,7 @@ window.saveMenuItemChanges = function(index) {
 
   state.menu[index].price = priceVal;
   state.menu[index].available = availVal;
+  state.menu[index].category = catVal;
 
   sendWSMessage('MENU_UPDATE', state.menu);
   alert('Menú guardado y sincronizado.');
@@ -1802,19 +2304,30 @@ function renderSalesHistory() {
   sortedSales.forEach(sale => {
     const row = document.createElement('div');
     row.className = 'history-row';
+    row.style.gridTemplateColumns = '1fr 1.5fr 1fr 1fr 1fr 1fr 1fr 0.8fr';
+    row.style.alignItems = 'center';
     
     const idToPrint = sale.id.startsWith('sale-') ? sale.id.substring(5, 13).toUpperCase() : sale.id;
-    const dateFormatted = new Date(sale.date).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = new Date(sale.date).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit' });
     const discText = sale.discount > 0 ? `-${formatCurrency(sale.discount)}` : '$0.00';
 
     row.innerHTML = `
       <strong>#${idToPrint}</strong>
-      <span>${dateFormatted}</span>
+      <span style="font-size: 0.8rem;">${dateFormatted}</span>
       <span>Mesa ${sale.tableId}</span>
       <div><span class="method-badge ${sale.paymentMethod}">${sale.paymentMethod}</span></div>
       <span style="color:#e74c3c;">${discText}</span>
-      <strong style="color:#2ecc71;">${formatCurrency(sale.total)}</strong>
+      <input type="number" step="0.01" class="edit-sale-total" value="${sale.total}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+      <input type="number" step="0.01" class="edit-sale-tip" value="${sale.tip || 0}" style="width:65px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+      <button class="btn btn-primary btn-save-sale-edit" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-save"></i></button>
     `;
+
+    row.querySelector('.btn-save-sale-edit').addEventListener('click', () => {
+      const total = parseFloat(row.querySelector('.edit-sale-total').value || '0');
+      const tip = parseFloat(row.querySelector('.edit-sale-tip').value || '0');
+      updateHistoricalRecord('sales', sale.id, { total, tip });
+    });
+
     container.appendChild(row);
   });
 }
@@ -1828,3 +2341,521 @@ function formatCurrency(value) {
     currency: 'MXN'
   }).format(value);
 }
+
+// ==========================================
+// NUEVAS FUNCIONES DE CONTROL DE CAJA Y FINANZAS
+// ==========================================
+window.switchCajeroTab = function(tabName) {
+  const btnSales = document.getElementById('cajero-tab-sales');
+  const btnCaja = document.getElementById('cajero-tab-caja');
+  const contentSales = document.getElementById('cajero-content-sales');
+  const contentCaja = document.getElementById('cajero-content-caja');
+  
+  if (!btnSales || !btnCaja || !contentSales || !contentCaja) return;
+
+  if (tabName === 'sales') {
+    btnSales.className = 'cajero-tab-btn active';
+    btnSales.style.background = 'var(--primary)';
+    btnSales.style.color = 'white';
+    btnCaja.className = 'cajero-tab-btn';
+    btnCaja.style.background = 'transparent';
+    btnCaja.style.color = 'rgba(255,255,255,0.7)';
+    contentSales.style.display = 'block';
+    contentCaja.style.display = 'none';
+  } else {
+    btnCaja.className = 'cajero-tab-btn active';
+    btnCaja.style.background = 'var(--primary)';
+    btnCaja.style.color = 'white';
+    btnSales.className = 'cajero-tab-btn';
+    btnSales.style.background = 'transparent';
+    btnSales.style.color = 'rgba(255,255,255,0.7)';
+    contentSales.style.display = 'none';
+    contentCaja.style.display = 'block';
+    
+    renderExpenses();
+    renderShiftBalance();
+  }
+};
+
+function renderExpenses() {
+  const tbody = document.getElementById('caja-expenses-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (!state.expenses || state.expenses.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="2" style="padding: 10px; text-align: center; color: rgba(255,255,255,0.4);">No hay gastos en este turno.</td></tr>';
+    return;
+  }
+
+  // Filtrar gastos del turno activo actual que no estén cerrados
+  const currentExpenses = state.expenses.filter(e => !e.closed && e.shift === state.activeShift.name);
+  if (currentExpenses.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="2" style="padding: 10px; text-align: center; color: rgba(255,255,255,0.4);">No hay gastos en este turno.</td></tr>';
+    return;
+  }
+
+  currentExpenses.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+    tr.innerHTML = `
+      <td style="padding: 8px 10px;">${e.description}</td>
+      <td style="padding: 8px 10px; text-align: right; color: #ea4335;">${formatCurrency(e.amount)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderShiftBalance() {
+  if (!state.activeShift) return;
+
+  const currentSales = state.salesHistory.filter(s => !s.closed && s.shift === state.activeShift.name);
+  const currentExpenses = (state.expenses || []).filter(e => !e.closed && e.shift === state.activeShift.name);
+
+  const cashSales = currentSales.filter(s => s.paymentMethod === 'cash').reduce((sum, s) => sum + s.total, 0);
+  const cardSalesOnly = currentSales.filter(s => s.paymentMethod === 'card').reduce((sum, s) => sum + s.total, 0);
+  const qrSalesOnly = currentSales.filter(s => s.paymentMethod === 'qr').reduce((sum, s) => sum + s.total, 0);
+  const cardSales = cardSalesOnly + qrSalesOnly;
+  
+  const cashTips = currentSales.filter(s => s.tipPaymentMethod === 'cash').reduce((sum, s) => sum + s.tip, 0);
+  const cardTips = currentSales.filter(s => s.tipPaymentMethod === 'card').reduce((sum, s) => sum + s.tip, 0);
+  const totalTips = cashTips + cardTips;
+
+  const totalExpenses = currentExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // FÓRMULA DEL EXCEL: Caja Inicial + Efectivo Ventas + Efectivo Propinas - Gastos
+  const expectedCash = state.activeShift.initialCash + cashSales + cashTips - totalExpenses;
+
+  // Actualizar labels en UI
+  const shiftNameEl = document.getElementById('caja-shift-name');
+  const shiftStartEl = document.getElementById('caja-shift-start');
+  const shiftInitialEl = document.getElementById('caja-shift-initial');
+
+  if (shiftNameEl) shiftNameEl.textContent = state.activeShift.name;
+  if (shiftStartEl) shiftStartEl.textContent = state.activeShift.startedAt ? new Date(state.activeShift.startedAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  if (shiftInitialEl) shiftInitialEl.textContent = formatCurrency(state.activeShift.initialCash);
+
+  const balInitialEl = document.getElementById('bal-initial');
+  const balCashSalesEl = document.getElementById('bal-cash-sales');
+  const balCashTipsEl = document.getElementById('bal-cash-tips');
+  const balExpensesEl = document.getElementById('bal-expenses');
+  const balExpectedCashEl = document.getElementById('bal-expected-cash');
+
+  if (balInitialEl) balInitialEl.textContent = formatCurrency(state.activeShift.initialCash);
+  if (balCashSalesEl) balCashSalesEl.textContent = formatCurrency(cashSales);
+  if (balCashTipsEl) balCashTipsEl.textContent = formatCurrency(cashTips);
+  if (balExpensesEl) balExpensesEl.textContent = `-${formatCurrency(totalExpenses)}`;
+  if (balExpectedCashEl) balExpectedCashEl.textContent = formatCurrency(expectedCash);
+
+  const balCardSalesEl = document.getElementById('bal-card-sales');
+  const balCardTipsEl = document.getElementById('bal-card-tips');
+
+  if (balCardSalesEl) balCardSalesEl.textContent = `${formatCurrency(cardSales)} (Tarjeta: ${formatCurrency(cardSalesOnly)} / QR: ${formatCurrency(qrSalesOnly)})`;
+  if (balCardTipsEl) balCardTipsEl.textContent = formatCurrency(cardTips);
+
+  const crossShiftTipsOut = currentSales.filter(s => s.openedInShift && s.openedInShift !== state.activeShift.name).reduce((sum, s) => sum + s.tip * 0.5, 0);
+  const activeShiftTips = Math.max(0, totalTips - crossShiftTipsOut);
+
+  const balTotalTipsEl = document.getElementById('bal-total-tips');
+  const balTipKitchenEl = document.getElementById('bal-tip-kitchen');
+  const balTipWaitersEl = document.getElementById('bal-tip-waiters');
+
+  if (balTotalTipsEl) {
+    if (crossShiftTipsOut > 0) {
+      balTotalTipsEl.innerHTML = `${formatCurrency(totalTips)} <span style="font-size:0.7rem; font-weight:normal; color:#ea4335; display:block; text-align:right;">(-${formatCurrency(crossShiftTipsOut)} del turno ant.)</span>`;
+    } else {
+      balTotalTipsEl.textContent = formatCurrency(totalTips);
+    }
+  }
+  if (balTipKitchenEl) balTipKitchenEl.textContent = formatCurrency(activeShiftTips * 0.5);
+  if (balTipWaitersEl) balTipWaitersEl.textContent = formatCurrency(activeShiftTips * 0.5);
+
+  const nextInitialCashInput = document.getElementById('next-initial-cash');
+  if (nextInitialCashInput) {
+    nextInitialCashInput.value = expectedCash.toFixed(2);
+    nextInitialCashInput.disabled = true;
+    nextInitialCashInput.style.opacity = '0.7';
+    nextInitialCashInput.style.cursor = 'not-allowed';
+  }
+}
+
+function renderFinancialReports() {
+  const dailyTbody = document.getElementById('financial-daily-tbody');
+  const monthlyTbody = document.getElementById('financial-monthly-tbody');
+  const shiftsTbody = document.getElementById('financial-shifts-tbody');
+  
+  if (!dailyTbody || !monthlyTbody || !shiftsTbody) return;
+
+  dailyTbody.innerHTML = '';
+  monthlyTbody.innerHTML = '';
+  shiftsTbody.innerHTML = '';
+
+  // 1. Ingresos Diarios
+  const dailyData = {};
+  state.salesHistory.forEach(s => {
+    const dateKey = new Date(s.date).toISOString().split('T')[0];
+    if (!dailyData[dateKey]) dailyData[dateKey] = { sales: 0, expenses: 0, salesCount: 0 };
+    dailyData[dateKey].sales += s.total;
+    dailyData[dateKey].salesCount++;
+  });
+
+  (state.expenses || []).forEach(e => {
+    const dateKey = new Date(e.date).toISOString().split('T')[0];
+    if (!dailyData[dateKey]) dailyData[dateKey] = { sales: 0, expenses: 0, salesCount: 0 };
+    dailyData[dateKey].expenses += e.amount;
+  });
+
+  const sortedDays = Object.keys(dailyData).sort((a, b) => new Date(b) - new Date(a));
+  if (sortedDays.length === 0) {
+    dailyTbody.innerHTML = '<tr><td colspan="5" style="padding:10px; text-align:center; color:rgba(255,255,255,0.4);">No hay datos de ventas registrados.</td></tr>';
+  } else {
+    sortedDays.forEach(day => {
+      const d = dailyData[day];
+      const net = d.sales - d.expenses;
+      const avg = d.salesCount > 0 ? (d.sales / d.salesCount) : 0;
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+      tr.innerHTML = `
+        <td style="padding: 10px;">${day}</td>
+        <td style="padding: 10px; text-align: right; color: #2ecc71;">${formatCurrency(d.sales)}</td>
+        <td style="padding: 10px; text-align: right; color: #e74c3c;">${formatCurrency(d.expenses)}</td>
+        <td style="padding: 10px; text-align: right; font-weight: bold; color: ${net >= 0 ? '#2ecc71' : '#e74c3c'}">${formatCurrency(net)}</td>
+        <td style="padding: 10px; text-align: right; color: var(--accent);">${formatCurrency(avg)}</td>
+      `;
+      dailyTbody.appendChild(tr);
+    });
+  }
+
+  // 2. Ingresos Mensuales
+  const monthlyData = {};
+  state.salesHistory.forEach(s => {
+    const d = new Date(s.date);
+    const monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    if (!monthlyData[monthKey]) monthlyData[monthKey] = { sales: 0, expenses: 0 };
+    monthlyData[monthKey].sales += s.total;
+  });
+
+  (state.expenses || []).forEach(e => {
+    const d = new Date(e.date);
+    const monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    if (!monthlyData[monthKey]) monthlyData[monthKey] = { sales: 0, expenses: 0 };
+    monthlyData[monthKey].expenses += e.amount;
+  });
+
+  const sortedMonths = Object.keys(monthlyData).sort((a, b) => b.localeCompare(a));
+  if (sortedMonths.length === 0) {
+    monthlyTbody.innerHTML = '<tr><td colspan="4" style="padding:10px; text-align:center; color:rgba(255,255,255,0.4);">No hay datos mensuales.</td></tr>';
+  } else {
+    sortedMonths.forEach(m => {
+      const d = monthlyData[m];
+      const net = d.sales - d.expenses;
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+      tr.innerHTML = `
+        <td style="padding: 10px;">${m}</td>
+        <td style="padding: 10px; text-align: right; color: #2ecc71;">${formatCurrency(d.sales)}</td>
+        <td style="padding: 10px; text-align: right; color: #e74c3c;">${formatCurrency(d.expenses)}</td>
+        <td style="padding: 10px; text-align: right; font-weight: bold; color: ${net >= 0 ? '#2ecc71' : '#e74c3c'}">${formatCurrency(net)}</td>
+      `;
+      monthlyTbody.appendChild(tr);
+    });
+  }
+
+  // 3. Historial de Cortes
+  if (!state.closedShifts || state.closedShifts.length === 0) {
+    shiftsTbody.innerHTML = '<tr><td colspan="10" style="padding:10px; text-align:center; color:rgba(255,255,255,0.4);">No hay turnos cerrados registrados.</td></tr>';
+  } else {
+    const sortedShifts = [...state.closedShifts].sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt));
+    sortedShifts.forEach(shift => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+      tr.innerHTML = `
+        <td style="padding: 8px;">${new Date(shift.closedAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</td>
+        <td style="padding: 8px; font-weight: bold; color:var(--accent);">${shift.name}</td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-initial" value="${shift.initialCash}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-cashsales" value="${shift.cashSales}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-totaltips" value="${shift.totalTips}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-expenses" value="${shift.totalExpenses}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
+        <td style="padding: 8px; text-align: right; font-weight: bold;">${formatCurrency(shift.expectedCash)}</td>
+        <td style="padding: 8px; text-align: right;">${formatCurrency(shift.tipCocina)}</td>
+        <td style="padding: 8px; text-align: right;">${formatCurrency(shift.tipMeseros)}</td>
+        <td style="padding: 8px; text-align: center;">
+          <button class="btn btn-primary btn-save-shift-edit" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-save"></i></button>
+        </td>
+      `;
+
+      tr.querySelector('.btn-save-shift-edit').addEventListener('click', () => {
+        const initialCash = parseFloat(tr.querySelector('.edit-shift-initial').value || '0');
+        const cashSales = parseFloat(tr.querySelector('.edit-shift-cashsales').value || '0');
+        const totalTips = parseFloat(tr.querySelector('.edit-shift-totaltips').value || '0');
+        const totalExpenses = parseFloat(tr.querySelector('.edit-shift-expenses').value || '0');
+
+        const expectedCash = initialCash + cashSales + totalTips - totalExpenses;
+        const tipCocina = totalTips * 0.5;
+        const tipMeseros = totalTips * 0.5;
+
+        updateHistoricalRecord('closedShifts', shift.id, { 
+          initialCash, 
+          cashSales, 
+          totalTips, 
+          totalExpenses,
+          expectedCash,
+          tipCocina,
+          tipMeseros
+        });
+      });
+
+      shiftsTbody.appendChild(tr);
+    });
+  }
+
+  // 4. Tabulador Semanal de Propinas y Calculadora
+  renderWeeklyTipsTable();
+  renderTipCalculator();
+}
+
+function getWeeklyTipsData() {
+  const today = new Date();
+  const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday...
+  const distance = (currentDay === 0 ? -6 : 1) - currentDay; // distance to Monday
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + distance);
+  monday.setHours(0, 0, 0, 0);
+
+  const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  const weeklyData = [];
+
+  for (let i = 0; i < 7; i++) {
+    const targetDate = new Date(monday);
+    targetDate.setDate(monday.getDate() + i);
+    const dateStr = targetDate.toISOString().split('T')[0];
+
+    let matutino = 0;
+    let vespertino = 0;
+
+    // 1. Filtrar cortes de caja (turnos cerrados) en esta fecha
+    const shiftsOnDate = (state.closedShifts || []).filter(cs => {
+      const shiftDateStr = new Date(cs.closedAt).toISOString().split('T')[0];
+      return shiftDateStr === dateStr;
+    });
+
+    let closedMatutino = false;
+    let closedVespertino = false;
+
+    shiftsOnDate.forEach(cs => {
+      if (cs.name === 'Matutino') {
+        matutino += (cs.tipCocina || 0) + (cs.tipMeseros || 0);
+        closedMatutino = true;
+      } else if (cs.name === 'Vespertino') {
+        vespertino += (cs.tipCocina || 0) + (cs.tipMeseros || 0);
+        closedVespertino = true;
+      }
+    });
+
+    // 2. Si el turno activo está en esta fecha y aún no está cerrado, calcular en tiempo real de salesHistory
+    if (state.activeShift) {
+      const activeShiftDateStr = new Date(state.activeShift.startedAt || today).toISOString().split('T')[0];
+      if (activeShiftDateStr === dateStr) {
+        if (state.activeShift.name === 'Matutino' && !closedMatutino) {
+          const currentSales = state.salesHistory.filter(s => !s.closed && s.shift === 'Matutino');
+          const totalTips = currentSales.reduce((sum, s) => sum + (s.tip || 0), 0);
+          matutino += totalTips;
+        }
+        if (state.activeShift.name === 'Vespertino' && !closedVespertino) {
+          const currentSales = state.salesHistory.filter(s => !s.closed && s.shift === 'Vespertino');
+          const totalTips = currentSales.reduce((sum, s) => sum + (s.tip || 0), 0);
+          const crossShiftTipsOut = currentSales.filter(s => s.openedInShift && s.openedInShift === 'Matutino').reduce((sum, s) => sum + s.tip * 0.5, 0);
+          const activeShiftTips = Math.max(0, totalTips - crossShiftTipsOut);
+          vespertino += activeShiftTips;
+          matutino += crossShiftTipsOut; // 50% de mesas matutinas cobradas en la tarde van a la mañana
+        }
+      }
+    }
+
+    weeklyData.push({
+      dayName: daysOfWeek[i],
+      dateStr: dateStr,
+      matutino: matutino,
+      vespertino: vespertino,
+      total: matutino + vespertino
+    });
+  }
+
+  return weeklyData;
+}
+
+function renderWeeklyTipsTable() {
+  const tbody = document.getElementById('weekly-tips-tbody');
+  if (!tbody) return;
+
+  const weeklyData = getWeeklyTipsData();
+  tbody.innerHTML = '';
+
+  weeklyData.forEach(day => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+
+    // Cocina Matutino
+    const isMatutinoCocinaSelected = state.selectedTips.some(t => t.dateStr === day.dateStr && t.shift === 'Matutino' && t.type === 'Cocina');
+    // Meseros Matutino
+    const isMatutinoMeserosSelected = state.selectedTips.some(t => t.dateStr === day.dateStr && t.shift === 'Matutino' && t.type === 'Meseros');
+    // Cocina Vespertino
+    const isVespertinoCocinaSelected = state.selectedTips.some(t => t.dateStr === day.dateStr && t.shift === 'Vespertino' && t.type === 'Cocina');
+    // Meseros Vespertino
+    const isVespertinoMeserosSelected = state.selectedTips.some(t => t.dateStr === day.dateStr && t.shift === 'Vespertino' && t.type === 'Meseros');
+
+    const matutinoCocinaVal = day.matutino * 0.5;
+    const matutinoMeserosVal = day.matutino * 0.5;
+    const vespertinoCocinaVal = day.vespertino * 0.5;
+    const vespertinoMeserosVal = day.vespertino * 0.5;
+
+    tr.innerHTML = `
+      <td style="padding: 10px; font-weight: 500;">
+        ${day.dayName} 
+        <span style="font-size: 0.75rem; color: rgba(255,255,255,0.4); display: block;">${day.dateStr}</span>
+      </td>
+      <td class="clickable-tip-cell ${isMatutinoCocinaSelected ? 'selected-tip' : ''}" 
+          style="padding: 10px; text-align: right;" 
+          data-date="${day.dateStr}" 
+          data-shift="Matutino" 
+          data-type="Cocina"
+          data-amount="${matutinoCocinaVal}">
+        ${formatCurrency(matutinoCocinaVal)}
+      </td>
+      <td class="clickable-tip-cell ${isMatutinoMeserosSelected ? 'selected-tip' : ''}" 
+          style="padding: 10px; text-align: right;" 
+          data-date="${day.dateStr}" 
+          data-shift="Matutino" 
+          data-type="Meseros"
+          data-amount="${matutinoMeserosVal}">
+        ${formatCurrency(matutinoMeserosVal)}
+      </td>
+      <td class="clickable-tip-cell ${isVespertinoCocinaSelected ? 'selected-tip' : ''}" 
+          style="padding: 10px; text-align: right;" 
+          data-date="${day.dateStr}" 
+          data-shift="Vespertino" 
+          data-type="Cocina"
+          data-amount="${vespertinoCocinaVal}">
+        ${formatCurrency(vespertinoCocinaVal)}
+      </td>
+      <td class="clickable-tip-cell ${isVespertinoMeserosSelected ? 'selected-tip' : ''}" 
+          style="padding: 10px; text-align: right;" 
+          data-date="${day.dateStr}" 
+          data-shift="Vespertino" 
+          data-type="Meseros"
+          data-amount="${vespertinoMeserosVal}">
+        ${formatCurrency(vespertinoMeserosVal)}
+      </td>
+      <td style="padding: 10px; text-align: right; font-weight: bold; color: var(--color-gold);">
+        ${formatCurrency(day.total)}
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  // Attach event listeners to the new cells
+  tbody.querySelectorAll('.clickable-tip-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const dateStr = cell.getAttribute('data-date');
+      const shift = cell.getAttribute('data-shift');
+      const type = cell.getAttribute('data-type');
+      const amount = parseFloat(cell.getAttribute('data-amount') || '0');
+
+      toggleTipSelection(dateStr, shift, type, amount);
+    });
+  });
+}
+
+function toggleTipSelection(dateStr, shift, type, amount) {
+  if (!state.selectedTips) state.selectedTips = [];
+
+  const index = state.selectedTips.findIndex(t => t.dateStr === dateStr && t.shift === shift && t.type === type);
+  if (index > -1) {
+    state.selectedTips.splice(index, 1);
+  } else {
+    state.selectedTips.push({ dateStr, shift, type, amount });
+  }
+
+  // Rerender table and calculator
+  renderWeeklyTipsTable();
+  renderTipCalculator();
+}
+
+function renderTipCalculator() {
+  const selectionsEl = document.getElementById('tip-calculator-selections');
+  const totalEl = document.getElementById('tip-calculator-total');
+  if (!selectionsEl || !totalEl) return;
+
+  if (!state.selectedTips) state.selectedTips = [];
+
+  selectionsEl.innerHTML = '';
+  
+  if (state.selectedTips.length === 0) {
+    selectionsEl.innerHTML = '<span style="color: rgba(255,255,255,0.3); font-style: italic;">Sin turnos seleccionados...</span>';
+    totalEl.textContent = '$0.00';
+    return;
+  }
+
+  let totalSum = 0;
+  // Sort selections by date/shift/type
+  const sorted = [...state.selectedTips].sort((a, b) => {
+    if (a.dateStr !== b.dateStr) return a.dateStr.localeCompare(b.dateStr);
+    if (a.shift !== b.shift) return a.shift.localeCompare(b.shift);
+    return a.type.localeCompare(b.type);
+  });
+
+  sorted.forEach(item => {
+    totalSum += item.amount;
+    
+    // Get short day name
+    const dateObj = new Date(item.dateStr + 'T00:00:00');
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const dayLabel = days[dateObj.getDay()];
+
+    const div = document.createElement('div');
+    div.style.display = 'flex';
+    div.style.justify = 'space-between';
+    div.style.alignItems = 'center';
+    div.style.padding = '4px 8px';
+    div.style.background = 'rgba(255,255,255,0.05)';
+    div.style.borderRadius = '4px';
+    div.innerHTML = `
+      <span>${dayLabel} - ${item.shift} (${item.type})</span>
+      <strong style="color: var(--color-gold);">${formatCurrency(item.amount)}</strong>
+    `;
+    selectionsEl.appendChild(div);
+  });
+
+  totalEl.textContent = formatCurrency(totalSum);
+}
+
+function updateHistoricalRecord(target, id, updatedRecord) {
+  // Aplicar cambios en memoria de inmediato para feedback visual instantáneo
+  if (target === 'sales') {
+    const idx = state.salesHistory.findIndex(s => s.id === id);
+    if (idx !== -1) {
+      state.salesHistory[idx] = { ...state.salesHistory[idx], ...updatedRecord };
+      renderSalesHistory();
+      renderShiftBalance();
+      renderFinancialReports();
+    }
+  } else if (target === 'closedShifts') {
+    const idx = state.closedShifts.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      state.closedShifts[idx] = { ...state.closedShifts[idx], ...updatedRecord };
+      renderFinancialReports();
+    }
+  }
+
+  sendWSMessage('UPDATE_HISTORICAL_DATA', { target, id, updatedRecord });
+  alert('Datos históricos actualizados con éxito.');
+}
+

@@ -2,7 +2,8 @@
   "settings": {
     "masterPin": "1234",
     "taxRate": 0.16,
-    "serviceRate": 0.1
+    "serviceRate": 0.1,
+    "defaultInitialCash": 700
   },
   "menu": [
     {
@@ -651,6 +652,16 @@
       "description": "Agua embotellada purificada.",
       "options": [],
       "available": true
+    },
+    {
+      "id": "item-1779747229953",
+      "name": "Cerveza corona o Victoria",
+      "vietName": "Beer",
+      "price": 55,
+      "category": "bebidas",
+      "description": "",
+      "options": [],
+      "available": true
     }
   ],
   "tables": [
@@ -681,61 +692,20 @@
     {
       "id": 5,
       "name": "Mesa 5",
-      "status": "occupied",
-      "currentOrder": {
-        "items": [
-          {
-            "productId": "ent-miso",
-            "name": "Sopa Miso Clásica",
-            "price": 95,
-            "quantity": 1,
-            "options": [],
-            "notes": ""
-          },
-          {
-            "productId": "beb-naranjada",
-            "name": "Naranjada",
-            "price": 50,
-            "quantity": 1,
-            "options": [],
-            "notes": ""
-          }
-        ]
-      }
+      "status": "free",
+      "currentOrder": null
     },
     {
       "id": 6,
       "name": "Mesa 6",
-      "status": "occupied",
-      "currentOrder": {
-        "items": [
-          {
-            "productId": "ent-miso",
-            "name": "Sopa Miso Clásica",
-            "price": 95,
-            "quantity": 1,
-            "options": [],
-            "notes": ""
-          }
-        ]
-      }
+      "status": "free",
+      "currentOrder": null
     },
     {
       "id": 7,
       "name": "Mesa 7",
-      "status": "occupied",
-      "currentOrder": {
-        "items": [
-          {
-            "productId": "ent-miso",
-            "name": "Sopa Miso Clásica",
-            "price": 95,
-            "quantity": 1,
-            "options": [],
-            "notes": ""
-          }
-        ]
-      }
+      "status": "free",
+      "currentOrder": null
     },
     {
       "id": 8,
@@ -744,5 +714,410 @@
       "currentOrder": null
     }
   ],
-  "sales": []
+  "sales": [
+    {
+      "id": "sale-1779746312285",
+      "tableId": 7,
+      "tableName": "Mesa 7",
+      "items": [
+        {
+          "productId": "ent-miso",
+          "name": "Sopa Miso Clásica",
+          "price": 95,
+          "quantity": 1,
+          "options": [],
+          "notes": ""
+        }
+      ],
+      "subtotal": 95,
+      "tax": 13.103448275862064,
+      "service": 9.5,
+      "discount": 0,
+      "total": 95,
+      "paymentMethod": "cash",
+      "tip": 0,
+      "tipPaymentMethod": "cash",
+      "shift": "Matutino",
+      "shiftStartedAt": "2026-05-25T10:00:00.000Z",
+      "closed": true,
+      "date": "2026-05-25T21:58:32.285Z"
+    },
+    {
+      "id": "sale-1779746320100",
+      "tableId": 6,
+      "tableName": "Mesa 6",
+      "items": [
+        {
+          "productId": "ent-miso",
+          "name": "Sopa Miso Clásica",
+          "price": 95,
+          "quantity": 1,
+          "options": [],
+          "notes": ""
+        }
+      ],
+      "subtotal": 95,
+      "tax": 13.103448275862064,
+      "service": 9.5,
+      "discount": 0,
+      "total": 95,
+      "paymentMethod": "cash",
+      "tip": 0,
+      "tipPaymentMethod": "cash",
+      "shift": "Matutino",
+      "shiftStartedAt": "2026-05-25T10:00:00.000Z",
+      "closed": true,
+      "date": "2026-05-25T21:58:40.100Z"
+    },
+    {
+      "id": "sale-1779748853732",
+      "tableId": 5,
+      "tableName": "Mesa 5",
+      "items": [
+        {
+          "productId": "ent-miso",
+          "name": "Sopa Miso Clásica",
+          "price": 95,
+          "quantity": 1,
+          "options": [],
+          "notes": ""
+        },
+        {
+          "productId": "beb-naranjada",
+          "name": "Naranjada",
+          "price": 50,
+          "quantity": 1,
+          "options": [],
+          "notes": ""
+        },
+        {
+          "productId": "ent-miso",
+          "name": "Sopa Miso Clásica",
+          "price": 95,
+          "quantity": 1,
+          "options": [],
+          "notes": ""
+        }
+      ],
+      "subtotal": 240,
+      "tax": 33.103448275862064,
+      "service": 24,
+      "discount": 0,
+      "total": 240,
+      "paymentMethod": "cash",
+      "tip": 0,
+      "tipPaymentMethod": "cash",
+      "shift": "Matutino",
+      "shiftStartedAt": "2026-05-25T10:00:00.000Z",
+      "closed": true,
+      "date": "2026-05-25T22:40:53.732Z"
+    },
+    {
+      "id": "sale-1779750208713",
+      "tableId": 4,
+      "tableName": "Mesa 4",
+      "items": [
+        {
+          "productId": "beb-limonada",
+          "name": "Limonada",
+          "price": 50,
+          "quantity": 1,
+          "options": [],
+          "notes": ""
+        }
+      ],
+      "subtotal": 50,
+      "tax": 6.896551724137929,
+      "service": 5,
+      "discount": 0,
+      "total": 50,
+      "paymentMethod": "cash",
+      "tip": 50,
+      "tipPaymentMethod": "cash",
+      "shift": "Vespertino",
+      "shiftStartedAt": "2026-05-25T22:42:15.678Z",
+      "closed": true,
+      "date": "2026-05-25T23:03:28.713Z"
+    },
+    {
+      "id": "sale-1779750232762",
+      "tableId": 4,
+      "tableName": "Mesa 4",
+      "items": [
+        {
+          "productId": "beb-limonada",
+          "name": "Limonada",
+          "price": 50,
+          "quantity": 1,
+          "options": [],
+          "notes": ""
+        }
+      ],
+      "subtotal": 50,
+      "tax": 6.896551724137929,
+      "service": 5,
+      "discount": 0,
+      "total": 50,
+      "paymentMethod": "cash",
+      "tip": 50,
+      "tipPaymentMethod": "cash",
+      "shift": "Vespertino",
+      "shiftStartedAt": "2026-05-25T22:42:15.678Z",
+      "closed": true,
+      "date": "2026-05-25T23:03:52.762Z"
+    }
+  ],
+  "expenses": [
+    {
+      "id": "expense-1779739743082",
+      "description": "hielo",
+      "amount": 60,
+      "shift": "Matutino",
+      "shiftStartedAt": "2026-05-25T10:00:00.000Z",
+      "closed": true,
+      "date": "2026-05-25T20:09:03.082Z"
+    }
+  ],
+  "activeShift": {
+    "name": "Vespertino",
+    "startedAt": "2026-05-25T23:06:36.039Z",
+    "initialCash": 640
+  },
+  "closedShifts": [
+    {
+      "id": "shift-1779748935677",
+      "name": "Matutino",
+      "startedAt": "2026-05-25T10:00:00.000Z",
+      "closedAt": "2026-05-25T22:42:15.677Z",
+      "initialCash": 700,
+      "cashSales": 430,
+      "cardSales": 0,
+      "qrSales": 0,
+      "totalSales": 430,
+      "cashTips": 0,
+      "cardTips": 0,
+      "totalTips": 250,
+      "tipCocina": 125,
+      "tipMeseros": 125,
+      "totalExpenses": 60,
+      "expectedCash": 1320,
+      "salesCount": 3,
+      "expenses": [
+        {
+          "id": "expense-1779739743082",
+          "description": "hielo",
+          "amount": 60,
+          "shift": "Matutino",
+          "shiftStartedAt": "2026-05-25T10:00:00.000Z",
+          "closed": true,
+          "date": "2026-05-25T20:09:03.082Z"
+        }
+      ],
+      "sales": [
+        {
+          "id": "sale-1779746312285",
+          "tableId": 7,
+          "tableName": "Mesa 7",
+          "items": [
+            {
+              "productId": "ent-miso",
+              "name": "Sopa Miso Clásica",
+              "price": 95,
+              "quantity": 1,
+              "options": [],
+              "notes": ""
+            }
+          ],
+          "subtotal": 95,
+          "tax": 13.103448275862064,
+          "service": 9.5,
+          "discount": 0,
+          "total": 95,
+          "paymentMethod": "cash",
+          "tip": 0,
+          "tipPaymentMethod": "cash",
+          "shift": "Matutino",
+          "shiftStartedAt": "2026-05-25T10:00:00.000Z",
+          "closed": true,
+          "date": "2026-05-25T21:58:32.285Z"
+        },
+        {
+          "id": "sale-1779746320100",
+          "tableId": 6,
+          "tableName": "Mesa 6",
+          "items": [
+            {
+              "productId": "ent-miso",
+              "name": "Sopa Miso Clásica",
+              "price": 95,
+              "quantity": 1,
+              "options": [],
+              "notes": ""
+            }
+          ],
+          "subtotal": 95,
+          "tax": 13.103448275862064,
+          "service": 9.5,
+          "discount": 0,
+          "total": 95,
+          "paymentMethod": "cash",
+          "tip": 0,
+          "tipPaymentMethod": "cash",
+          "shift": "Matutino",
+          "shiftStartedAt": "2026-05-25T10:00:00.000Z",
+          "closed": true,
+          "date": "2026-05-25T21:58:40.100Z"
+        },
+        {
+          "id": "sale-1779748853732",
+          "tableId": 5,
+          "tableName": "Mesa 5",
+          "items": [
+            {
+              "productId": "ent-miso",
+              "name": "Sopa Miso Clásica",
+              "price": 95,
+              "quantity": 1,
+              "options": [],
+              "notes": ""
+            },
+            {
+              "productId": "beb-naranjada",
+              "name": "Naranjada",
+              "price": 50,
+              "quantity": 1,
+              "options": [],
+              "notes": ""
+            },
+            {
+              "productId": "ent-miso",
+              "name": "Sopa Miso Clásica",
+              "price": 95,
+              "quantity": 1,
+              "options": [],
+              "notes": ""
+            }
+          ],
+          "subtotal": 240,
+          "tax": 33.103448275862064,
+          "service": 24,
+          "discount": 0,
+          "total": 240,
+          "paymentMethod": "cash",
+          "tip": 0,
+          "tipPaymentMethod": "cash",
+          "shift": "Matutino",
+          "shiftStartedAt": "2026-05-25T10:00:00.000Z",
+          "closed": true,
+          "date": "2026-05-25T22:40:53.732Z"
+        }
+      ]
+    },
+    {
+      "id": "shift-1779750396039",
+      "name": "Vespertino",
+      "startedAt": "2026-05-25T22:42:15.678Z",
+      "closedAt": "2026-05-25T23:06:36.039Z",
+      "initialCash": 640,
+      "cashSales": 100,
+      "cardSales": 0,
+      "qrSales": 0,
+      "totalSales": 100,
+      "cashTips": 55000,
+      "cardTips": 0,
+      "totalTips": 55,
+      "tipCocina": 27.5,
+      "tipMeseros": 27.5,
+      "totalExpenses": 0,
+      "expectedCash": 795,
+      "salesCount": 2,
+      "expenses": [],
+      "sales": [
+        {
+          "id": "sale-1779750208713",
+          "tableId": 4,
+          "tableName": "Mesa 4",
+          "items": [
+            {
+              "productId": "beb-limonada",
+              "name": "Limonada",
+              "price": 50,
+              "quantity": 1,
+              "options": [],
+              "notes": ""
+            }
+          ],
+          "subtotal": 50,
+          "tax": 6.896551724137929,
+          "service": 5,
+          "discount": 0,
+          "total": 50,
+          "paymentMethod": "cash",
+          "tip": 5000,
+          "tipPaymentMethod": "cash",
+          "shift": "Vespertino",
+          "shiftStartedAt": "2026-05-25T22:42:15.678Z",
+          "closed": true,
+          "date": "2026-05-25T23:03:28.713Z"
+        },
+        {
+          "id": "sale-1779750232762",
+          "tableId": 4,
+          "tableName": "Mesa 4",
+          "items": [
+            {
+              "productId": "beb-limonada",
+              "name": "Limonada",
+              "price": 50,
+              "quantity": 1,
+              "options": [],
+              "notes": ""
+            }
+          ],
+          "subtotal": 50,
+          "tax": 6.896551724137929,
+          "service": 5,
+          "discount": 0,
+          "total": 50,
+          "paymentMethod": "cash",
+          "tip": 50000,
+          "tipPaymentMethod": "cash",
+          "shift": "Vespertino",
+          "shiftStartedAt": "2026-05-25T22:42:15.678Z",
+          "closed": true,
+          "date": "2026-05-25T23:03:52.762Z"
+        }
+      ]
+    }
+  ],
+  "categories": [
+    {
+      "id": "banhmi",
+      "name": "Bánh Mì"
+    },
+    {
+      "id": "pho",
+      "name": "Sopas"
+    },
+    {
+      "id": "entradas",
+      "name": "Entradas"
+    },
+    {
+      "id": "bebidas",
+      "name": "Bebidas"
+    },
+    {
+      "id": "platillos-principales",
+      "name": "Platillos Principales"
+    },
+    {
+      "id": "ensaladas",
+      "name": "Ensaladas"
+    },
+    {
+      "id": "extras",
+      "name": "Extras"
+    }
+  ]
 }
