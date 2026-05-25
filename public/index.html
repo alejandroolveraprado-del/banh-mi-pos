@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bánh Mì POS — Sistema de Punto de Venta</title>
+  <!-- Error Boundary Tool -->
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+      alert("Error de JavaScript detectado:\n\n" + message + "\n\nArchivo: " + source + "\nLínea: " + lineno + (colno ? ", Columna: " + colno : ""));
+      return false;
+    };
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap" rel="stylesheet">
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Style Sheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- PANTALLA DE ACCESO (LOGIN) -->
+  <div id="login-screen" class="screen active">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo-viet">🥖</div>
+        <h1 class="brand-title">Bánh Mì</h1>
+        <p class="brand-subtitle">Auténtico Sabor Vietnamita</p>
+      </div>
+      <div class="role-selector">
+        <div class="role-option active" data-role="cajero" id="role-cajero-btn">
+          <i class="fa-solid fa-cash-register role-icon"></i>
+          <h3>Cajero</h3>
+          <p>Toma de órdenes e impresión de tickets en local</p>
+        </div>
+        <div class="role-option" data-role="maestro" id="role-maestro-btn">
+          <i class="fa-solid fa-user-shield role-icon"></i>
+          <h3>Maestro</h3>
+          <p>Control de menú, analíticas y reportes desde casa</p>
+        </div>
+      </div>
+      
+      <!-- Input de contraseña (oculto por defecto) -->
+      <div class="pin-container" id="pin-section">
+        <label for="pin-input">PIN de Acceso Maestro</label>
+        <div class="pin-input-wrapper">
+          <input type="password" id="pin-input" maxlength="4" placeholder="••••" autocomplete="current-password">
+        </div>
+        <span class="pin-error-msg" id="pin-error">PIN Incorrecto. Intenta de nuevo.</span>
+      </div>
+
+      <button id="login-submit" class="btn btn-primary btn-block">Ingresar al Sistema</button>
+    </div>
+  </div>
+
+  <!-- APLICACIÓN PRINCIPAL -->
+  <div id="app-screen" class="screen">
+    
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="header-left">
+        <span class="header-logo">🥖 Bánh Mì</span>
+        <div class="connection-badge" id="connection-status">
+          <span class="status-dot green"></span> Conectado
+        </div>
+      </div>
+      <div class="header-center">
+        <h2 id="view-title">Punto de Venta</h2>
+      </div>
+      <div class="header-right">
+        <div class="user-badge">
+          <i class="fa-solid fa-user-circle"></i>
+          <span id="user-role-label">Cajero</span>
+        </div>
+        <button id="logout-btn" class="btn btn-icon-text btn-outline">
+          <i class="fa-solid fa-sign-out-alt"></i> Salir
+        </button>
+      </div>
+    </header>
+
+    <div class="app-body">
+      
+      <!-- ================= VISTA CAJERO ================= -->
+      <main id="cajero-view" class="view-panel active">
+        <!-- Mapa de Mesas y Detalles -->
+        <div class="cajero-grid">
+          
+          <!-- Column A: Mapa de Mesas -->
+          <section class="tables-section">
+            <div class="section-header">
+              <h3><i class="fa-solid fa-border-all"></i> Mapa de Mesas</h3>
+              <span class="section-legend">
+                <span class="legend-item"><span class="dot free"></span> Libre</span>
+                <span class="legend-item"><span class="dot occupied"></span> Ocupada</span>
+                <span class="legend-item"><span class="dot billing"></span> Por Pagar</span>
+              </span>
+            </div>
+            
+            <div class="tables-grid" id="tables-container">
+              <!-- Se cargan dinámicamente -->
+            </div>
+          </section>
+
+          <!-- Column B: Pedido / Catálogo -->
+          <section class="order-section" id="active-order-panel">
+            <div class="order-panel-header" id="order-header-info">
+              <h3>Selecciona una mesa para iniciar</h3>
+            </div>
+
+            <!-- Contenido del pedido (visible solo cuando hay mesa seleccionada) -->
+            <div class="order-panel-body disabled" id="order-body-container">
+              
+              <!-- Pestañas: Opciones de Pedido vs Menú -->
+              <div class="order-tabs">
+                <button class="order-tab active" id="tab-cart">Pedido Actual</button>
+                <button class="order-tab" id="tab-menu">Agregar Platillos</button>
+              </div>
+
+              <!-- CONTENIDO PESTAÑA: CARRITO -->
+              <div id="tab-content-cart" class="tab-content active">
+                <div class="cart-items" id="cart-items-list">
+                  <div class="empty-cart-message">
+                    <i class="fa-solid fa-utensils"></i>
+                    <p>El pedido está vacío.<br>Agrega platillos del menú.</p>
+                  </div>
+                </div>
+
+                <div class="cart-summary">
+                  <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <span id="cart-subtotal">$0.00</span>
+                  </div>
+                  <div class="summary-row">
+                    <span>IVA (16%):</span>
+                    <span id="cart-tax">$0.00</span>
+                  </div>
+                  <div class="summary-row">
+                    <span>Servicio (10%):</span>
+                    <span id="cart-service">$0.00</span>
+                  </div>
+                  <div class="summary-row total-row">
+                    <span>Total:</span>
+                    <span id="cart-total">$0.00</span>
+                  </div>
+                </div>
+
+                <div class="cart-actions">
+                  <button id="btn-print-bill" class="btn btn-outline btn-block" disabled>
+                    <i class="fa-solid fa-print"></i> Pre-Ticket (80mm)
+                  </button>
+                  <button id="btn-checkout" class="btn btn-primary btn-block" disabled>
+                    <i class="fa-solid fa-cash-register"></i> Registrar Cobro
+                  </button>
+                </div>
+              </div>
+
+              <!-- CONTENIDO PESTAÑA: MENÚ CATALOGO -->
+              <div id="tab-content-menu" class="tab-content">
+                <!-- Filtros del menú -->
+                <div class="menu-categories" id="menu-categories-list">
+                  <button class="menu-cat-btn active" data-category="all">Todos</button>
+                  <button class="menu-cat-btn" data-category="banhmi">Bánh Mì</button>
+                  <button class="menu-cat-btn" data-category="pho">Phở</button>
+                  <button class="menu-cat-btn" data-category="entradas">Khai Vị</button>
+                  <button class="menu-cat-btn" data-category="bebidas">Bebidas</button>
+                </div>
+
+                <!-- Lista de platillos -->
+                <div class="menu-grid" id="menu-items-container">
+                  <!-- Cargados dinámicamente -->
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+        </div>
+      </main>
+
+      <!-- ================= VISTA MAESTRO ================= -->
+      <main id="maestro-view" class="view-panel">
+        
+        <!-- Pestañas de Maestro -->
+        <div class="maestro-navigation">
+          <button class="maestro-nav-btn active" data-tab="dashboard">
+            <i class="fa-solid fa-chart-line"></i> Dashboard en Vivo
+          </button>
+          <button class="maestro-nav-btn" data-tab="menu-manager">
+            <i class="fa-solid fa-list-check"></i> Gestor de Menú
+          </button>
+          <button class="maestro-nav-btn" data-tab="history">
+            <i class="fa-solid fa-history"></i> Historial de Ventas
+          </button>
+        </div>
+
+        <!-- 1. DASHBOARD -->
+        <div id="maestro-tab-dashboard" class="maestro-tab-content active">
+          <!-- Tarjetas de métricas -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-icon green"><i class="fa-solid fa-coins"></i></div>
+              <div class="metric-info">
+                <h3>Ventas de Hoy</h3>
+                <p class="metric-value" id="dashboard-sales-today">$0.00</p>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon orange"><i class="fa-solid fa-receipt"></i></div>
+              <div class="metric-info">
+                <h3>Órdenes Realizadas</h3>
+                <p class="metric-value" id="dashboard-sales-count">0</p>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon gold"><i class="fa-solid fa-scale-balanced"></i></div>
+              <div class="metric-info">
+                <h3>Ticket Promedio</h3>
+                <p class="metric-value" id="dashboard-avg-ticket">$0.00</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actividad de mesas en vivo -->
+          <div class="dashboard-activity">
+            <div class="activity-header">
+              <h3><i class="fa-solid fa-clock"></i> Estado de Mesas en Tiempo Real</h3>
+            </div>
+            <div class="live-tables-status" id="live-tables-status-list">
+              <!-- Se carga con el estado en vivo de las mesas -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. GESTOR DE MENÚ -->
+        <div id="maestro-tab-menu-manager" class="maestro-tab-content">
+          <div class="manager-container">
+            <div class="manager-header">
+              <h3>Administrador de Platillos y Precios</h3>
+              <p>Cambia precios o la disponibilidad de los artículos. Los cambios se sincronizarán en la caja del local inmediatamente.</p>
+            </div>
+            
+            <div class="menu-editor-list" id="menu-editor-table">
+              <div class="menu-editor-row header-row">
+                <span>Platillo</span>
+                <span>Categoría</span>
+                <span>Precio ($)</span>
+                <span>Disponible</span>
+                <span>Acciones</span>
+              </div>
+              <div class="menu-editor-rows-container" id="menu-editor-rows">
+                <!-- Cargado dinámicamente -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. HISTORIAL DE VENTAS -->
+        <div id="maestro-tab-history" class="maestro-tab-content">
+          <div class="history-container">
+            <div class="history-header">
+              <h3>Historial de Transacciones Registradas</h3>
+              <button id="btn-refresh-history" class="btn btn-outline"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+            </div>
+            
+            <div class="sales-history-list" id="sales-history-table">
+              <div class="history-row header-row">
+                <span>ID Venta</span>
+                <span>Fecha / Hora</span>
+                <span>Mesa</span>
+                <span>Método Pago</span>
+                <span>Descuento</span>
+                <span>Total Cobrado</span>
+              </div>
+              <div class="history-rows-container" id="history-rows">
+                <div class="empty-history">No se han registrado ventas el día de hoy.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PERSONALIZACIÓN DE PLATILLO ================= -->
+  <div id="custom-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-item-name">Personalizar Platillo</h3>
+        <button class="modal-close" id="btn-close-custom"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-item-desc" id="modal-item-desc">Descripción del platillo...</p>
+        <p class="modal-item-price" id="modal-item-price">$0.00</p>
+        
+        <div class="options-section">
+          <h4>Opciones / Modificadores:</h4>
+          <div class="options-grid" id="modal-item-options">
+            <!-- Checkboxes cargados dinámicamente -->
+          </div>
+        </div>
+
+        <div class="quantity-section">
+          <h4>Cantidad:</h4>
+          <div class="quantity-selector">
+            <button class="qty-btn" id="btn-qty-minus"><i class="fa-solid fa-minus"></i></button>
+            <input type="number" id="input-qty" value="1" min="1" readonly>
+            <button class="qty-btn" id="btn-qty-plus"><i class="fa-solid fa-plus"></i></button>
+          </div>
+        </div>
+
+        <div class="notes-section">
+          <h4>Instrucciones Especiales:</h4>
+          <input type="text" id="input-item-notes" placeholder="Ej. Caldo extra caliente, sin chile...">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-add-to-cart-confirm" class="btn btn-primary btn-block">Agregar al Pedido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: REGISTRO DE COBRO (CHECKOUT) ================= -->
+  <div id="checkout-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-cash-register"></i> Registrar Cobro</h3>
+        <button class="modal-close" id="btn-close-checkout"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="checkout-summary-box">
+          <div class="chk-row">
+            <span>Mesa:</span>
+            <strong id="chk-table-name">Mesa 1</strong>
+          </div>
+          <div class="chk-row">
+            <span>Subtotal:</span>
+            <span id="chk-subtotal">$0.00</span>
+          </div>
+          <div class="chk-row">
+            <span>Impuestos (IVA 16%):</span>
+            <span id="chk-tax">$0.00</span>
+          </div>
+          <div class="chk-row">
+            <span>Servicio (10%):</span>
+            <span id="chk-service">$0.00</span>
+          </div>
+          
+          <div class="chk-row discount-input-row">
+            <label for="chk-discount">Descuento ($):</label>
+            <input type="number" id="chk-discount" value="0" min="0" placeholder="0.00">
+          </div>
+
+          <div class="chk-row total-row">
+            <span>Total a Cobrar:</span>
+            <span id="chk-total">$0.00</span>
+          </div>
+        </div>
+
+        <div class="payment-methods-section">
+          <h4>Método de Pago:</h4>
+          <div class="payment-methods-grid">
+            <div class="pay-method-card active" data-method="cash">
+              <i class="fa-solid fa-money-bill-wave"></i>
+              <span>Efectivo</span>
+            </div>
+            <div class="pay-method-card" data-method="card">
+              <i class="fa-solid fa-credit-card"></i>
+              <span>Tarjeta</span>
+            </div>
+            <div class="pay-method-card" data-method="qr">
+              <i class="fa-solid fa-qrcode"></i>
+              <span>QR / Móvil</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-confirm-payment" class="btn btn-success btn-block">Confirmar y Liberar Mesa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TICKET TÉRMICO (OCULTO EN PANTALLA, ACTIVO EN window.print()) ================= -->
+  <div id="thermal-ticket" class="print-only">
+    <div class="ticket-header">
+      <h2>BANH MI</h2>
+      <p class="ticket-viet">Tiệm Bánh Mì Việt Nam</p>
+      <p>Calle Principal #123, Local</p>
+      <p>Tel: 555-0199</p>
+      <hr class="dashed">
+      <p class="ticket-info">
+        <strong>Ticket:</strong> <span id="print-ticket-id">00000</span><br>
+        <strong>Fecha:</strong> <span id="print-ticket-date">--/--/----</span><br>
+        <strong>Mesa:</strong> <span id="print-ticket-table">Mesa X</span><br>
+        <strong>Atendió:</strong> Cajero Local
+      </p>
+      <hr class="dashed">
+    </div>
+    <div class="ticket-body">
+      <div class="ticket-items-header">
+        <span class="col-qty">Cant</span>
+        <span class="col-desc">Descripción</span>
+        <span class="col-price">Total</span>
+      </div>
+      <div id="print-ticket-items">
+        <!-- Rellenado dinámico -->
+      </div>
+      <hr class="dashed">
+    </div>
+    <div class="ticket-totals">
+      <div class="print-row">
+        <span>Subtotal:</span>
+        <span id="print-subtotal">$0.00</span>
+      </div>
+      <div class="print-row">
+        <span>IVA (16%):</span>
+        <span id="print-tax">$0.00</span>
+      </div>
+      <div class="print-row">
+        <span>Servicio (10%):</span>
+        <span id="print-service">$0.00</span>
+      </div>
+      <div class="print-row" id="print-discount-row">
+        <span>Descuento:</span>
+        <span id="print-discount">-$0.00</span>
+      </div>
+      <div class="print-row print-total">
+        <span>TOTAL:</span>
+        <span id="print-total">$0.00</span>
+      </div>
+      <hr class="dashed">
+      <p class="print-payment-method">Método de Pago: <span id="print-pay-method">Efectivo</span></p>
+    </div>
+    <div class="ticket-footer">
+      <p>¡Cảm ơn! / ¡Muchas Gracias!</p>
+      <p>Visítanos de nuevo pronto</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
