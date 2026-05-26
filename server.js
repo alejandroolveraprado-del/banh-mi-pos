@@ -21,7 +21,7 @@ function getAutoShiftName() {
 
 // Cargar estado inicial desde database.json
 let db = { 
-  settings: { masterPin: "1234", taxRate: 0.16, serviceRate: 0.10, defaultInitialCash: 1000 }, 
+  settings: { masterPin: "19042609", taxRate: 0.16, serviceRate: 0.15, defaultInitialCash: 1000 }, 
   menu: [], 
   tables: [], 
   sales: [],
@@ -130,7 +130,7 @@ wss.on('connection', (ws) => {
       console.log(`Evento recibido: ${type}`);
 
       // Para acciones administrativas se requiere validar el PIN
-      const isAdminAction = ['MENU_UPDATE', 'GET_SALES_REPORT', 'UPDATE_SETTINGS', 'CLOSE_SHIFT', 'CATEGORIES_UPDATE', 'UPDATE_HISTORICAL_DATA'].includes(type);
+      const isAdminAction = ['MENU_UPDATE', 'GET_SALES_REPORT', 'UPDATE_SETTINGS', 'CLOSE_SHIFT', 'CATEGORIES_UPDATE', 'UPDATE_HISTORICAL_DATA', 'DELETE_HISTORICAL_DATA', 'ADD_HISTORICAL_RECORD'].includes(type);
       if (isAdminAction && pin !== db.settings.masterPin) {
         ws.send(JSON.stringify({ type: 'ERROR', payload: 'No autorizado. PIN inválido.' }));
         return;
@@ -216,6 +216,13 @@ wss.on('connection', (ws) => {
             date: new Date().toISOString()
           };
           db.expenses.push(newExpense);
+          saveDatabase();
+          broadcast({ type: 'EXPENSES_UPDATE', payload: db.expenses });
+          break;
+
+        case 'DELETE_EXPENSE':
+          // payload: { id }
+          db.expenses = db.expenses.filter(e => e.id !== payload.id);
           saveDatabase();
           broadcast({ type: 'EXPENSES_UPDATE', payload: db.expenses });
           break;
@@ -334,6 +341,43 @@ wss.on('connection', (ws) => {
           }
           saveDatabase();
           // Broadcast full updated sales report to all Maestros
+          broadcast({
+            type: 'SALES_REPORT',
+            payload: {
+              sales: db.sales,
+              expenses: db.expenses,
+              closedShifts: db.closedShifts
+            }
+          });
+          break;
+        }
+        case 'DELETE_HISTORICAL_DATA': {
+          const { target, id } = payload;
+          if (target === 'sales') {
+            db.sales = db.sales.filter(s => s.id !== id);
+          } else if (target === 'expenses') {
+            db.expenses = db.expenses.filter(e => e.id !== id);
+          } else if (target === 'closedShifts') {
+            db.closedShifts = db.closedShifts.filter(c => c.id !== id);
+          }
+          saveDatabase();
+          broadcast({
+            type: 'SALES_REPORT',
+            payload: {
+              sales: db.sales,
+              expenses: db.expenses,
+              closedShifts: db.closedShifts
+            }
+          });
+          break;
+        }
+
+        case 'ADD_HISTORICAL_RECORD': {
+          const { target, record } = payload;
+          if (target === 'closedShifts') {
+            db.closedShifts.push(record);
+          }
+          saveDatabase();
           broadcast({
             type: 'SALES_REPORT',
             payload: {
