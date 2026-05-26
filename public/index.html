@@ -48,7 +48,7 @@
       <div class="pin-container" id="pin-section">
         <label for="pin-input">PIN de Acceso Maestro</label>
         <div class="pin-input-wrapper">
-          <input type="password" id="pin-input" maxlength="4" placeholder="••••" autocomplete="current-password">
+          <input type="password" id="pin-input" maxlength="12" placeholder="••••••••" autocomplete="current-password">
         </div>
         <span class="pin-error-msg" id="pin-error">PIN Incorrecto. Intenta de nuevo.</span>
       </div>
@@ -147,7 +147,7 @@
                       <span id="cart-tax">$0.00</span>
                     </div>
                     <div class="summary-row">
-                      <span>Servicio (10%):</span>
+                      <span>Propina sugerida (15%):</span>
                       <span id="cart-service">$0.00</span>
                     </div>
                     <div class="summary-row total-row">
@@ -227,6 +227,7 @@
                       <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; background: rgba(255,255,255,0.02);">
                         <th style="padding: 6px 10px;">Concepto</th>
                         <th style="padding: 6px 10px; text-align: right;">Monto</th>
+                        <th style="padding: 6px 10px; text-align: center;">Acción</th>
                       </tr>
                     </thead>
                     <tbody id="caja-expenses-tbody">
@@ -325,11 +326,15 @@
           </button>
           <button class="maestro-nav-btn" data-tab="menu-manager">
             <i class="fa-solid fa-list-check"></i> Gestor de Menú
-          </button>          <button class="maestro-nav-btn" data-tab="history">
+          </button>
+          <button class="maestro-nav-btn" data-tab="history">
             <i class="fa-solid fa-history"></i> Historial de Ventas
           </button>
           <button class="maestro-nav-btn" data-tab="financial-reports">
             <i class="fa-solid fa-scale-balanced"></i> Finanzas y Turnos
+          </button>
+          <button class="maestro-nav-btn" data-tab="replenishment">
+            <i class="fa-solid fa-clipboard-list"></i> Faltantes e Insumos
           </button>
         </div>
         <!-- 1. DASHBOARD -->
@@ -514,9 +519,57 @@
             </div>
           </div>
 
+          <!-- Gráfica de Ventas por Mes -->
+          <div class="caja-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 15px 0; color: #fff;"><i class="fa-solid fa-chart-bar" style="color: var(--accent);"></i> Gráfica de Ventas por Mes (2026)</h4>
+            <div style="height: 300px; position: relative;">
+              <canvas id="monthly-sales-chart" style="width: 100%; height: 100%;"></canvas>
+            </div>
+          </div>
+
           <!-- Historial de Cortes de Turno -->
           <div class="caja-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
             <h4 style="margin: 0 0 15px 0; color: #fff;"><i class="fa-solid fa-folder-closed" style="color: var(--accent);"></i> Historial de Cortes de Caja (Turnos Cerrados)</h4>
+            
+            <!-- Formulario Agregar Corte Manual -->
+            <div id="add-manual-shift-box" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+              <h5 style="margin: 0 0 10px 0; color: #fff;"><i class="fa-solid fa-plus-circle" style="color: var(--accent);"></i> Agregar Registro de Corte Manual</h5>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; align-items: flex-end;">
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Fecha</label>
+                  <input type="date" id="manual-shift-date" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Turno</label>
+                  <select id="manual-shift-name" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                    <option value="Día Completo">Día Completo</option>
+                    <option value="Matutino">Matutino</option>
+                    <option value="Vespertino">Vespertino</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Fondo Inicial ($)</label>
+                  <input type="number" id="manual-shift-initial" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Ventas Efec. ($)</label>
+                  <input type="number" id="manual-shift-cashsales" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Ventas Tarj. ($)</label>
+                  <input type="number" id="manual-shift-cardsales" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Propinas ($)</label>
+                  <input type="number" id="manual-shift-totaltips" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Gastos ($)</label>
+                  <input type="number" id="manual-shift-expenses" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <button id="btn-add-manual-shift" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem; height: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-plus"></i> Agregar</button>
+              </div>
+            </div>
             <div style="max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
               <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
                 <thead style="background: rgba(255,255,255,0.05); position: sticky; top: 0;">
@@ -525,6 +578,7 @@
                     <th style="padding: 8px;">Turno</th>
                     <th style="padding: 8px; text-align: right;">Fondo Inicial ($)</th>
                     <th style="padding: 8px; text-align: right;">Ventas Efec. ($)</th>
+                    <th style="padding: 8px; text-align: right;">Ventas Tarj. ($)</th>
                     <th style="padding: 8px; text-align: right;">Propinas ($)</th>
                     <th style="padding: 8px; text-align: right;">Gastos ($)</th>
                     <th style="padding: 8px; text-align: right;">Esperado ($)</th>
@@ -601,6 +655,156 @@
           </div>
         </div>
 
+        <!-- 5. INSUMOS Y FALTANTES -->
+        <div id="maestro-tab-replenishment" class="maestro-tab-content">
+          <div class="replenishment-container" style="padding: 20px 0;">
+            <div class="manager-header" style="margin-bottom: 20px;">
+              <h3 style="margin: 0 0 5px 0; font-size: 1.6rem; color: #fff;"><i class="fa-solid fa-clipboard-list" style="color: var(--accent);"></i> Insumos y Lista de Faltantes</h3>
+              <p style="margin: 0; color: rgba(255,255,255,0.6); font-size: 0.95rem;">Proyecta los consumos de materias primas basados en las ventas para planificar las compras del día siguiente.</p>
+            </div>
+
+            <!-- Filtros de fecha y turno -->
+            <div class="caja-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+              <div style="flex: 1; min-width: 150px;">
+                <label style="display: block; font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Fecha de Análisis</label>
+                <input type="date" id="rep-date-filter" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; height: 38px;">
+              </div>
+              <div style="flex: 1; min-width: 150px;">
+                <label style="display: block; font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Turno</label>
+                <select id="rep-shift-filter" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; height: 38px;">
+                  <option value="all">Todos los Turnos</option>
+                  <option value="Matutino">Matutino</option>
+                  <option value="Vespertino">Vespertino</option>
+                </select>
+              </div>
+              <button id="btn-refresh-rep" class="btn btn-outline" style="height: 38px; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-rotate"></i> Actualizar Proyección</button>
+            </div>
+
+            <!-- Métrica de proteínas -->
+            <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+              <div class="metric-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px;">
+                <div class="metric-icon" style="background: rgba(235,87,87,0.15); color: #eb5757; width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-egg"></i></div>
+                <div class="metric-info">
+                  <h3 style="margin: 0; font-size: 0.85rem; color: rgba(255,255,255,0.6); font-weight: 500;">Pollo Consumido</h3>
+                  <p class="metric-value" style="margin: 3px 0 0 0; font-size: 1.25rem; font-weight: 700; color: #fff;" id="rep-total-pollo">0 ord / 0.00 kg</p>
+                </div>
+              </div>
+              <div class="metric-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px;">
+                <div class="metric-icon" style="background: rgba(242,153,74,0.15); color: #f2994a; width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-meat"></i></div>
+                <div class="metric-info">
+                  <h3 style="margin: 0; font-size: 0.85rem; color: rgba(255,255,255,0.6); font-weight: 500;">Arrachera Consumida</h3>
+                  <p class="metric-value" style="margin: 3px 0 0 0; font-size: 1.25rem; font-weight: 700; color: #fff;" id="rep-total-arrachera">0 ord / 0.00 kg</p>
+                </div>
+              </div>
+              <div class="metric-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px;">
+                <div class="metric-icon" style="background: rgba(39,174,96,0.15); color: #27ae60; width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-seedling"></i></div>
+                <div class="metric-info">
+                  <h3 style="margin: 0; font-size: 0.85rem; color: rgba(255,255,255,0.6); font-weight: 500;">Tofu Consumido</h3>
+                  <p class="metric-value" style="margin: 3px 0 0 0; font-size: 1.25rem; font-weight: 700; color: #fff;" id="rep-total-tofu">0 ord / 0.00 kg</p>
+                </div>
+              </div>
+              <div class="metric-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px;">
+                <div class="metric-icon" style="background: rgba(45,156,219,0.15); color: #2d9cdb; width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-shrimp"></i></div>
+                <div class="metric-info">
+                  <h3 style="margin: 0; font-size: 0.85rem; color: rgba(255,255,255,0.6); font-weight: 500;">Camarón Consumido</h3>
+                  <p class="metric-value" style="margin: 3px 0 0 0; font-size: 1.25rem; font-weight: 700; color: #fff;" id="rep-total-camaron">0 ord / 0.00 kg</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start;">
+              <!-- Panel A: Lista de Compras / Faltantes -->
+              <div class="caja-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                  <h4 style="margin: 0; color: #fff; font-size: 1.15rem;"><i class="fa-solid fa-cart-shopping" style="color: var(--accent);"></i> Lista de Compras / Sugerencia de Faltantes</h4>
+                  <div style="display: flex; gap: 8px;">
+                    <button id="btn-copy-rep-whatsapp" class="btn btn-outline" style="font-size: 0.8rem; padding: 6px 12px; display: flex; align-items: center; gap: 6px;"><i class="fa-brands fa-whatsapp"></i> Copiar para WhatsApp</button>
+                  </div>
+                </div>
+
+                <div style="border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; margin-bottom: 15px;">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+                    <thead style="background: rgba(255,255,255,0.05);">
+                      <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <th style="padding: 10px;">Insumo</th>
+                        <th style="padding: 10px; text-align: right;">Consumo (Hoy)</th>
+                        <th style="padding: 10px; text-align: right;">Stock Objetivo (Par)</th>
+                        <th style="padding: 10px; text-align: right; width: 120px;">Stock Físico (Actual)</th>
+                        <th style="padding: 10px; text-align: right; color: var(--accent); font-weight: bold;">Sugerido a Comprar</th>
+                      </tr>
+                    </thead>
+                    <tbody id="replenishment-tbody">
+                      <!-- Dinámico -->
+                    </tbody>
+                  </table>
+                </div>
+                <p style="font-size: 0.75rem; color: rgba(255,255,255,0.5); line-height: 1.4; margin: 0;">
+                  * El stock físico es editable. Si ingresas cuánto te queda en tienda, el sistema calculará exactamente cuánto te falta para llegar al Stock Objetivo (Par). El sugerido a comprar no bajará de cero.
+                </p>
+              </div>
+
+              <!-- Panel B: Configurador de Consumo y Recetas -->
+              <div class="caja-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px;">
+                <h4 style="margin: 0 0 15px 0; color: #fff; font-size: 1.15rem;"><i class="fa-solid fa-utensils" style="color: var(--accent);"></i> Parámetros de Receta</h4>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <div>
+                    <h5 style="margin: 0 0 6px 0; color: rgba(255,255,255,0.8); font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 3px;">Platos Fuertes (Pho / Pad Thai / Curry / Stir Fry):</h5>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div>
+                        <label style="font-size: 0.7rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px;">Proteína (g)</label>
+                        <input type="number" id="cfg-main-protein" value="150" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem;">
+                      </div>
+                      <div>
+                        <label style="font-size: 0.7rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px;">Tofu (g)</label>
+                        <input type="number" id="cfg-main-tofu" value="120" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem;">
+                      </div>
+                      <div>
+                        <label style="font-size: 0.7rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px;">Camarón (g)</label>
+                        <input type="number" id="cfg-main-shrimp" value="100" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem;">
+                      </div>
+                      <div>
+                        <label style="font-size: 0.7rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px;">Verduras (g)</label>
+                        <input type="number" id="cfg-main-veg" value="80" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem;">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                    <h5 style="margin: 0 0 6px 0; color: rgba(255,255,255,0.8); font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 3px;">Entradas (Satay / Rollos):</h5>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div>
+                        <label style="font-size: 0.7rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px;">Proteína (g)</label>
+                        <input type="number" id="cfg-ent-protein" value="80" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem;">
+                      </div>
+                      <div>
+                        <label style="font-size: 0.7rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px;">Verduras (g)</label>
+                        <input type="number" id="cfg-ent-veg" value="40" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem;">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                    <h5 style="margin: 0 0 6px 0; color: rgba(255,255,255,0.8); font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 3px;">Aceite (ml):</h5>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div>
+                        <label style="font-size: 0.7rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px;">Salteados/Fritos</label>
+                        <input type="number" id="cfg-oil-fry" value="15" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem;">
+                      </div>
+                      <div>
+                        <label style="font-size: 0.7rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px;">Otros Platos</label>
+                        <input type="number" id="cfg-oil-other" value="5" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem;">
+                      </div>
+                    </div>
+                  </div>
+
+                  <button id="btn-save-rep-configs" class="btn btn-primary" style="margin-top: 8px; width: 100%; padding: 8px;"><i class="fa-solid fa-calculator"></i> Calcular Proyecciones</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </main>
 
     </div>
@@ -666,7 +870,7 @@
             <span id="chk-tax">$0.00</span>
           </div>
           <div class="chk-row">
-            <span>Servicio (10%):</span>
+            <span>Propina sugerida (15%):</span>
             <span id="chk-service">$0.00</span>
           </div>
           <div class="chk-row discount-input-row">
@@ -726,8 +930,8 @@
     <div class="ticket-header">
       <h2>BANH MI</h2>
       <p class="ticket-viet">Tiệm Bánh Mì Việt Nam</p>
-      <p>Calle Principal #123, Local</p>
-      <p>Tel: 555-0199</p>
+      <p>MANUEL DOBLADO 12B CENTRO GUANAJUATO</p>
+      <p>Tel: 4736880929</p>
       <hr class="dashed">
       <p class="ticket-info">
         <strong>Ticket:</strong> <span id="print-ticket-id">00000</span><br>
@@ -758,7 +962,7 @@
         <span id="print-tax">$0.00</span>
       </div>
       <div class="print-row">
-        <span>Servicio (10%):</span>
+        <span>Propina sugerida (15%):</span>
         <span id="print-service">$0.00</span>
       </div>
       <div class="print-row" id="print-discount-row">
@@ -774,7 +978,7 @@
     </div>
     <div class="ticket-footer">
       <p>¡Cảm ơn! / ¡Muchas Gracias!</p>
-      <p>Visítanos de nuevo pronto</p>
+      <p style="font-style: italic; font-size: 0.75rem; margin-top: 10px; line-height: 1.3;">"Si quieres ir mas rapido ve solo, si quieres ir mas lejos ve acompañado"</p>
     </div>
   </div>
 

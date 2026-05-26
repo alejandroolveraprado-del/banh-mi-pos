@@ -665,8 +665,8 @@ const state = {
   selectedTips: [],    // Propinas seleccionadas en la calculadora
   settings: {
     taxRate: 0.16,
-    serviceRate: 0.10,
-    masterPin: "1234"
+    serviceRate: 0.15,
+    masterPin: "19042609"
   }
 };
 
@@ -846,6 +846,9 @@ function connectWebSocket() {
             renderSalesHistory();
             renderShiftBalance();
             renderFinancialReports();
+            if (document.getElementById('maestro-tab-replenishment') && document.getElementById('maestro-tab-replenishment').classList.contains('active')) {
+              renderReplenishmentReport();
+            }
             break;
 
           case 'EXPENSES_UPDATE':
@@ -877,6 +880,9 @@ function connectWebSocket() {
             renderSalesHistory();
             renderShiftBalance();
             renderFinancialReports();
+            if (document.getElementById('maestro-tab-replenishment') && document.getElementById('maestro-tab-replenishment').classList.contains('active')) {
+              renderReplenishmentReport();
+            }
             break;
 
           case 'PAY_SUCCESS':
@@ -946,9 +952,9 @@ function enableOfflineMode(reasonText) {
   if (localSettings) {
     state.settings = JSON.parse(localSettings);
   } else {
-    state.settings.masterPin = "1234";
+    state.settings.masterPin = "19042609";
     state.settings.taxRate = 0.16;
-    state.settings.serviceRate = 0.10;
+    state.settings.serviceRate = 0.15;
   }
 
   // Guardar para inicializar si estaba vacío
@@ -1030,6 +1036,38 @@ function handleLocalAction(type, payload) {
           state.closedShifts[idx] = { ...state.closedShifts[idx], ...updatedRecord };
         }
       }
+      saveLocalState();
+      renderExpenses();
+      renderShiftBalance();
+      renderFinancialReports();
+      break;
+    }
+    case 'DELETE_HISTORICAL_DATA': {
+      const { target, id } = payload;
+      if (target === 'sales') {
+        state.salesHistory = state.salesHistory.filter(s => s.id !== id);
+      } else if (target === 'expenses') {
+        state.expenses = state.expenses.filter(e => e.id !== id);
+      } else if (target === 'closedShifts') {
+        state.closedShifts = state.closedShifts.filter(c => c.id !== id);
+      }
+      saveLocalState();
+      renderExpenses();
+      renderShiftBalance();
+      renderFinancialReports();
+      break;
+    }
+    case 'ADD_HISTORICAL_RECORD': {
+      const { target, record } = payload;
+      if (target === 'closedShifts') {
+        state.closedShifts.push(record);
+      }
+      saveLocalState();
+      renderFinancialReports();
+      break;
+    }
+    case 'DELETE_EXPENSE': {
+      state.expenses = state.expenses.filter(e => e.id !== payload.id);
       saveLocalState();
       renderExpenses();
       renderShiftBalance();
@@ -1429,8 +1467,11 @@ function setupEventListeners() {
         const tabEl = document.getElementById(`maestro-tab-${targetTab}`);
         if (tabEl) tabEl.classList.add('active');
 
-        if (targetTab === 'history' || targetTab === 'financial-reports') {
+        if (targetTab === 'history' || targetTab === 'financial-reports' || targetTab === 'replenishment') {
           requestSalesReport();
+          if (targetTab === 'replenishment') {
+            setTimeout(renderReplenishmentReport, 100);
+          }
         }
       }
     });
@@ -1439,6 +1480,75 @@ function setupEventListeners() {
   const refreshHistory = document.getElementById('btn-refresh-history');
   if (refreshHistory) {
     refreshHistory.addEventListener('click', requestSalesReport);
+  }
+
+  const btnAddManualShift = document.getElementById('btn-add-manual-shift');
+  if (btnAddManualShift) {
+    btnAddManualShift.addEventListener('click', () => {
+      const dateVal = document.getElementById('manual-shift-date').value;
+      if (!dateVal) {
+        alert('Por favor selecciona una fecha.');
+        return;
+      }
+
+      const name = document.getElementById('manual-shift-name').value;
+      const initialCash = parseFloat(document.getElementById('manual-shift-initial').value || '0');
+      const cashSales = parseFloat(document.getElementById('manual-shift-cashsales').value || '0');
+      const cardSales = parseFloat(document.getElementById('manual-shift-cardsales').value || '0');
+      const totalTips = parseFloat(document.getElementById('manual-shift-totaltips').value || '0');
+      const totalExpenses = parseFloat(document.getElementById('manual-shift-expenses').value || '0');
+
+      // Create closedAt timestamp (set to 18:00 of selected date)
+      const parts = dateVal.split('-');
+      const closedAtDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 18, 0, 0);
+      const closedAt = closedAtDate.toISOString();
+      const startedAt = new Date(closedAtDate.getTime() - 4 * 60 * 60 * 1000).toISOString();
+
+      const totalSales = cashSales + cardSales;
+      const cashTips = totalTips * 0.4;
+      const cardTips = totalTips * 0.6;
+      const expectedCash = initialCash + cashSales + cashTips - totalExpenses;
+      const tipCocina = totalTips * 0.5;
+      const tipMeseros = totalTips * 0.5;
+
+      const record = {
+        id: 'manual-added-' + dateVal + '-' + Date.now(),
+        name,
+        startedAt,
+        closedAt,
+        initialCash,
+        cashSales,
+        cardSales,
+        qrSales: 0,
+        totalSales,
+        cashTips,
+        cardTips,
+        totalTips,
+        crossShiftTipsOut: 0,
+        tipCocina,
+        tipMeseros,
+        totalExpenses,
+        expectedCash,
+        closed: true,
+        imported: true
+      };
+
+      if (state.isOfflineMode) {
+        handleLocalAction('ADD_HISTORICAL_RECORD', { target: 'closedShifts', record });
+      } else {
+        sendWSMessage('ADD_HISTORICAL_RECORD', { target: 'closedShifts', record });
+      }
+
+      alert('Corte de caja agregado exitosamente.');
+      
+      // Clear inputs
+      document.getElementById('manual-shift-date').value = '';
+      document.getElementById('manual-shift-initial').value = '';
+      document.getElementById('manual-shift-cashsales').value = '';
+      document.getElementById('manual-shift-cardsales').value = '';
+      document.getElementById('manual-shift-totaltips').value = '';
+      document.getElementById('manual-shift-expenses').value = '';
+    });
   }
 
   const btnAddExpense = document.getElementById('btn-add-expense');
@@ -1576,6 +1686,24 @@ function setupEventListeners() {
       renderTipCalculator();
     });
   }
+
+  const btnRefreshRep = document.getElementById('btn-refresh-rep');
+  if (btnRefreshRep) {
+    btnRefreshRep.addEventListener('click', renderReplenishmentReport);
+  }
+
+  const btnSaveRepConfigs = document.getElementById('btn-save-rep-configs');
+  if (btnSaveRepConfigs) {
+    btnSaveRepConfigs.addEventListener('click', () => {
+      renderReplenishmentReport();
+      alert('Proyecciones recalculadas con los nuevos parámetros.');
+    });
+  }
+
+  const btnCopyRepWhatsapp = document.getElementById('btn-copy-rep-whatsapp');
+  if (btnCopyRepWhatsapp) {
+    btnCopyRepWhatsapp.addEventListener('click', copyShoppingListToClipboard);
+  }
 }
 
 // ==========================================
@@ -1598,7 +1726,7 @@ function executeLogin() {
   } else {
     const pin = document.getElementById('pin-input').value;
     if (!pin) {
-      alert('Por favor ingresa tu PIN de 4 dígitos.');
+      alert('Por favor ingresa tu PIN Maestro.');
       return;
     }
 
@@ -2319,13 +2447,20 @@ function renderSalesHistory() {
       <span style="color:#e74c3c;">${discText}</span>
       <input type="number" step="0.01" class="edit-sale-total" value="${sale.total}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
       <input type="number" step="0.01" class="edit-sale-tip" value="${sale.tip || 0}" style="width:65px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
-      <button class="btn btn-primary btn-save-sale-edit" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-save"></i></button>
+      <div style="display: flex; gap: 4px; justify-content: center;">
+        <button class="btn btn-primary btn-save-sale-edit" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-save"></i></button>
+        <button class="btn btn-danger btn-delete-sale" style="padding:4px 8px; font-size:0.75rem; background:#ea4335; border-color:#ea4335;"><i class="fa-solid fa-trash"></i></button>
+      </div>
     `;
 
     row.querySelector('.btn-save-sale-edit').addEventListener('click', () => {
       const total = parseFloat(row.querySelector('.edit-sale-total').value || '0');
       const tip = parseFloat(row.querySelector('.edit-sale-tip').value || '0');
       updateHistoricalRecord('sales', sale.id, { total, tip });
+    });
+
+    row.querySelector('.btn-delete-sale').addEventListener('click', () => {
+      deleteHistoricalRecord('sales', sale.id);
     });
 
     container.appendChild(row);
@@ -2383,14 +2518,14 @@ function renderExpenses() {
   tbody.innerHTML = '';
 
   if (!state.expenses || state.expenses.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="2" style="padding: 10px; text-align: center; color: rgba(255,255,255,0.4);">No hay gastos en este turno.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" style="padding: 10px; text-align: center; color: rgba(255,255,255,0.4);">No hay gastos en este turno.</td></tr>';
     return;
   }
 
   // Filtrar gastos del turno activo actual que no estén cerrados
   const currentExpenses = state.expenses.filter(e => !e.closed && e.shift === state.activeShift.name);
   if (currentExpenses.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="2" style="padding: 10px; text-align: center; color: rgba(255,255,255,0.4);">No hay gastos en este turno.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" style="padding: 10px; text-align: center; color: rgba(255,255,255,0.4);">No hay gastos en este turno.</td></tr>';
     return;
   }
 
@@ -2400,7 +2535,19 @@ function renderExpenses() {
     tr.innerHTML = `
       <td style="padding: 8px 10px;">${e.description}</td>
       <td style="padding: 8px 10px; text-align: right; color: #ea4335;">${formatCurrency(e.amount)}</td>
+      <td style="padding: 8px 10px; text-align: center;">
+        <button class="btn-delete-active-expense" style="background: none; border: none; color: #ea4335; cursor: pointer; padding: 4px 8px;"><i class="fa-solid fa-trash"></i></button>
+      </td>
     `;
+    tr.querySelector('.btn-delete-active-expense').addEventListener('click', () => {
+      if (confirm(`¿Estás seguro de eliminar el gasto "${e.description}"?`)) {
+        if (state.isOfflineMode) {
+          handleLocalAction('DELETE_EXPENSE', { id: e.id });
+        } else {
+          sendWSMessage('DELETE_EXPENSE', { id: e.id });
+        }
+      }
+    });
     tbody.appendChild(tr);
   });
 }
@@ -2491,17 +2638,30 @@ function renderFinancialReports() {
 
   // 1. Ingresos Diarios
   const dailyData = {};
+  
+  // Agregar ventas actuales
   state.salesHistory.forEach(s => {
+    if (s.closed) return; // Omitir ventas cerradas para evitar doble conteo
     const dateKey = new Date(s.date).toISOString().split('T')[0];
     if (!dailyData[dateKey]) dailyData[dateKey] = { sales: 0, expenses: 0, salesCount: 0 };
     dailyData[dateKey].sales += s.total;
     dailyData[dateKey].salesCount++;
   });
 
+  // Agregar gastos actuales
   (state.expenses || []).forEach(e => {
+    if (e.closed) return; // Omitir gastos cerrados
     const dateKey = new Date(e.date).toISOString().split('T')[0];
     if (!dailyData[dateKey]) dailyData[dateKey] = { sales: 0, expenses: 0, salesCount: 0 };
     dailyData[dateKey].expenses += e.amount;
+  });
+
+  // Agregar datos de turnos cerrados
+  (state.closedShifts || []).forEach(cs => {
+    const dateKey = new Date(cs.closedAt).toISOString().split('T')[0];
+    if (!dailyData[dateKey]) dailyData[dateKey] = { sales: 0, expenses: 0, salesCount: 0 };
+    dailyData[dateKey].sales += cs.totalSales || 0;
+    dailyData[dateKey].expenses += cs.totalExpenses || 0;
   });
 
   const sortedDays = Object.keys(dailyData).sort((a, b) => new Date(b) - new Date(a));
@@ -2527,18 +2687,35 @@ function renderFinancialReports() {
 
   // 2. Ingresos Mensuales
   const monthlyData = {};
+  
+  // Agregar ventas actuales
   state.salesHistory.forEach(s => {
+    if (s.closed) return; // Omitir ventas cerradas
     const d = new Date(s.date);
     const monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    if (!monthlyData[monthKey]) monthlyData[monthKey] = { sales: 0, expenses: 0 };
+    if (!monthlyData[monthKey]) monthlyData[monthKey] = { sales: 0, expenses: 0, daysSet: new Set() };
     monthlyData[monthKey].sales += s.total;
+    monthlyData[monthKey].daysSet.add(d.toISOString().split('T')[0]);
   });
 
+  // Agregar gastos actuales
   (state.expenses || []).forEach(e => {
+    if (e.closed) return; // Omitir gastos cerrados
     const d = new Date(e.date);
     const monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    if (!monthlyData[monthKey]) monthlyData[monthKey] = { sales: 0, expenses: 0 };
+    if (!monthlyData[monthKey]) monthlyData[monthKey] = { sales: 0, expenses: 0, daysSet: new Set() };
     monthlyData[monthKey].expenses += e.amount;
+    monthlyData[monthKey].daysSet.add(d.toISOString().split('T')[0]);
+  });
+
+  // Agregar turnos cerrados
+  (state.closedShifts || []).forEach(cs => {
+    const d = new Date(cs.closedAt);
+    const monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    if (!monthlyData[monthKey]) monthlyData[monthKey] = { sales: 0, expenses: 0, daysSet: new Set() };
+    monthlyData[monthKey].sales += cs.totalSales || 0;
+    monthlyData[monthKey].expenses += cs.totalExpenses || 0;
+    monthlyData[monthKey].daysSet.add(d.toISOString().split('T')[0]);
   });
 
   const sortedMonths = Object.keys(monthlyData).sort((a, b) => b.localeCompare(a));
@@ -2560,6 +2737,9 @@ function renderFinancialReports() {
     });
   }
 
+  // Dibujar Gráfica
+  renderMonthlySalesChart(monthlyData);
+
   // 3. Historial de Cortes
   if (!state.closedShifts || state.closedShifts.length === 0) {
     shiftsTbody.innerHTML = '<tr><td colspan="10" style="padding:10px; text-align:center; color:rgba(255,255,255,0.4);">No hay turnos cerrados registrados.</td></tr>';
@@ -2572,44 +2752,62 @@ function renderFinancialReports() {
         <td style="padding: 8px;">${new Date(shift.closedAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</td>
         <td style="padding: 8px; font-weight: bold; color:var(--accent);">${shift.name}</td>
         <td style="padding: 8px; text-align: right;">
-          <input type="number" step="0.01" class="edit-shift-initial" value="${shift.initialCash}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+          <input type="number" step="0.01" class="edit-shift-initial" value="${shift.initialCash}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
         </td>
         <td style="padding: 8px; text-align: right;">
-          <input type="number" step="0.01" class="edit-shift-cashsales" value="${shift.cashSales}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+          <input type="number" step="0.01" class="edit-shift-cashsales" value="${shift.cashSales}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
         </td>
         <td style="padding: 8px; text-align: right;">
-          <input type="number" step="0.01" class="edit-shift-totaltips" value="${shift.totalTips}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+          <input type="number" step="0.01" class="edit-shift-cardsales" value="${shift.cardSales || 0}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
         </td>
         <td style="padding: 8px; text-align: right;">
-          <input type="number" step="0.01" class="edit-shift-expenses" value="${shift.totalExpenses}" style="width:70px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+          <input type="number" step="0.01" class="edit-shift-totaltips" value="${shift.totalTips}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-expenses" value="${shift.totalExpenses}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
         </td>
         <td style="padding: 8px; text-align: right; font-weight: bold;">${formatCurrency(shift.expectedCash)}</td>
         <td style="padding: 8px; text-align: right;">${formatCurrency(shift.tipCocina)}</td>
         <td style="padding: 8px; text-align: right;">${formatCurrency(shift.tipMeseros)}</td>
         <td style="padding: 8px; text-align: center;">
-          <button class="btn btn-primary btn-save-shift-edit" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-save"></i></button>
+          <div style="display: flex; gap: 4px; justify-content: center;">
+            <button class="btn btn-primary btn-save-shift-edit" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-save"></i></button>
+            <button class="btn btn-danger btn-delete-shift" style="padding:4px 8px; font-size:0.75rem; background:#ea4335; border-color:#ea4335;"><i class="fa-solid fa-trash"></i></button>
+          </div>
         </td>
       `;
 
       tr.querySelector('.btn-save-shift-edit').addEventListener('click', () => {
         const initialCash = parseFloat(tr.querySelector('.edit-shift-initial').value || '0');
         const cashSales = parseFloat(tr.querySelector('.edit-shift-cashsales').value || '0');
+        const cardSales = parseFloat(tr.querySelector('.edit-shift-cardsales').value || '0');
         const totalTips = parseFloat(tr.querySelector('.edit-shift-totaltips').value || '0');
         const totalExpenses = parseFloat(tr.querySelector('.edit-shift-expenses').value || '0');
 
-        const expectedCash = initialCash + cashSales + totalTips - totalExpenses;
+        const totalSales = cashSales + cardSales;
+        const cashTips = totalTips * 0.4;
+        const cardTips = totalTips * 0.6;
+        const expectedCash = initialCash + cashSales + cashTips - totalExpenses;
         const tipCocina = totalTips * 0.5;
         const tipMeseros = totalTips * 0.5;
 
         updateHistoricalRecord('closedShifts', shift.id, { 
           initialCash, 
           cashSales, 
-          totalTips, 
+          cardSales,
+          totalSales,
+          cashTips,
+          cardTips,
+          totalTips,
           totalExpenses,
           expectedCash,
           tipCocina,
           tipMeseros
         });
+      });
+
+      tr.querySelector('.btn-delete-shift').addEventListener('click', () => {
+        deleteHistoricalRecord('closedShifts', shift.id);
       });
 
       shiftsTbody.appendChild(tr);
@@ -2619,6 +2817,136 @@ function renderFinancialReports() {
   // 4. Tabulador Semanal de Propinas y Calculadora
   renderWeeklyTipsTable();
   renderTipCalculator();
+}
+
+function renderMonthlySalesChart(monthlyData) {
+  const canvas = document.getElementById('monthly-sales-chart');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  // Clear and resize canvas for HDPI
+  const rect = canvas.getBoundingClientRect();
+  const width = rect.width || 600;
+  const height = rect.height || 300;
+  
+  // Set scale factor for Retina Displays
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  ctx.clearRect(0, 0, width, height);
+
+  // Aggregate and sort data chronologically
+  const chronologicalMonths = Object.keys(monthlyData).sort();
+  if (chronologicalMonths.length === 0) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.font = '14px Outfit, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Sin datos de ventas para mostrar la gráfica.', width / 2, height / 2);
+    return;
+  }
+
+  const monthsMap = {
+    '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr', '05': 'May', '06': 'Jun',
+    '07': 'Jul', '08': 'Ago', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic'
+  };
+
+  const chartData = chronologicalMonths.map(mKey => {
+    const parts = mKey.split('-');
+    const label = monthsMap[parts[1]] || parts[1];
+    const m = monthlyData[mKey];
+    const daysCount = m.daysSet ? m.daysSet.size : 1;
+    const avg = m.sales / (daysCount || 1);
+    return {
+      label: label + ' ' + parts[0],
+      sales: m.sales,
+      avg: avg
+    };
+  });
+
+  const maxSales = Math.max(...chartData.map(d => d.sales)) * 1.15 || 1000;
+
+  // Chart Layout
+  const paddingLeft = 70;
+  const paddingRight = 20;
+  const paddingTop = 30;
+  const paddingBottom = 50;
+  
+  const chartWidth = width - paddingLeft - paddingRight;
+  const chartHeight = height - paddingTop - paddingBottom;
+
+  // Draw Grid Lines & Y Axis Labels
+  const gridLines = 4;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#a0a0a0';
+  ctx.font = '10px Outfit, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+
+  for (let i = 0; i <= gridLines; i++) {
+    const val = (maxSales / gridLines) * i;
+    const y = paddingTop + chartHeight - (chartHeight / gridLines) * i;
+    
+    // Grid line
+    ctx.beginPath();
+    ctx.moveTo(paddingLeft, y);
+    ctx.lineTo(width - paddingRight, y);
+    ctx.stroke();
+
+    // Label
+    ctx.fillText('$' + Math.round(val).toLocaleString('es-MX'), paddingLeft - 8, y);
+  }
+
+  // Draw Bars and Labels
+  const barCount = chartData.length;
+  const spacing = 30;
+  const totalSpacing = spacing * (barCount - 1);
+  const barWidth = Math.max(25, (chartWidth - totalSpacing) / barCount);
+  
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  chartData.forEach((d, idx) => {
+    const x = paddingLeft + idx * (barWidth + spacing) + (chartWidth - (barWidth * barCount + spacing * (barCount - 1))) / 2;
+    const barHeight = (d.sales / maxSales) * chartHeight;
+    const y = paddingTop + chartHeight - barHeight;
+
+    // Create gradient
+    const gradient = ctx.createLinearGradient(x, y, x, paddingTop + chartHeight);
+    gradient.addColorStop(0, '#f4c430'); // Gold
+    gradient.addColorStop(1, '#ef933c'); // Amber
+
+    // Draw Bar
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    const radius = Math.min(6, barHeight);
+    if (ctx.roundRect) {
+      ctx.roundRect(x, y, barWidth, barHeight, [radius, radius, 0, 0]);
+    } else {
+      ctx.rect(x, y, barWidth, barHeight);
+    }
+    ctx.fill();
+
+    // Value text
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px Outfit, sans-serif';
+    ctx.fillText('$' + Math.round(d.sales).toLocaleString('es-MX'), x + barWidth / 2, y - 15);
+
+    // Label
+    ctx.fillStyle = '#a0a0a0';
+    ctx.font = '11px Outfit, sans-serif';
+    ctx.fillText(d.label, x + barWidth / 2, paddingTop + chartHeight + 8);
+
+    // Average sales text below
+    ctx.fillStyle = '#168e5a'; // Jade light color for emphasis
+    ctx.font = 'bold 9px Outfit, sans-serif';
+    ctx.fillText('Prom: $' + Math.round(d.avg).toLocaleString('es-MX') + '/d', x + barWidth / 2, paddingTop + chartHeight + 22);
+  });
 }
 
 function getWeeklyTipsData() {
@@ -2857,5 +3185,270 @@ function updateHistoricalRecord(target, id, updatedRecord) {
 
   sendWSMessage('UPDATE_HISTORICAL_DATA', { target, id, updatedRecord });
   alert('Datos históricos actualizados con éxito.');
+}
+
+function deleteHistoricalRecord(target, id) {
+  if (!confirm('¿Estás seguro de que deseas eliminar este registro del historial? Esta acción es irreversible.')) return;
+
+  if (target === 'sales') {
+    state.salesHistory = state.salesHistory.filter(s => s.id !== id);
+    renderSalesHistory();
+    renderShiftBalance();
+    renderFinancialReports();
+  } else if (target === 'closedShifts') {
+    state.closedShifts = state.closedShifts.filter(c => c.id !== id);
+    renderFinancialReports();
+  }
+
+  sendWSMessage('DELETE_HISTORICAL_DATA', { target, id });
+  alert('Registro eliminado con éxito.');
+}
+
+// ==========================================
+// PESTAÑA DE INSUMOS Y FALTANTES (MAESTRO)
+// ==========================================
+function classifyItemProtein(item) {
+  const name = (item.name || '').toLowerCase();
+  const id = (item.id || '').toLowerCase();
+  
+  if (name.includes('pollo') || id.includes('-pollo') || name.includes('satay')) {
+    return 'pollo';
+  }
+  if (name.includes('arrachera') || name.includes('res') || name.includes('carne') || id.includes('-arrachera')) {
+    return 'arrachera';
+  }
+  if (name.includes('tofu') || id.includes('-tofu')) {
+    return 'tofu';
+  }
+  if (name.includes('camarón') || name.includes('camaron') || id.includes('-camaron') || id.includes('-shrimp') || name.includes('shrimp')) {
+    return 'camaron';
+  }
+  return null;
+}
+
+function getRecipeConfigs() {
+  return {
+    mainProtein: parseFloat(document.getElementById('cfg-main-protein')?.value || '150'),
+    mainTofu: parseFloat(document.getElementById('cfg-main-tofu')?.value || '120'),
+    mainShrimp: parseFloat(document.getElementById('cfg-main-shrimp')?.value || '100'),
+    mainVeg: parseFloat(document.getElementById('cfg-main-veg')?.value || '80'),
+    entProtein: parseFloat(document.getElementById('cfg-ent-protein')?.value || '80'),
+    entVeg: parseFloat(document.getElementById('cfg-ent-veg')?.value || '40'),
+    oilFry: parseFloat(document.getElementById('cfg-oil-fry')?.value || '15'),
+    oilOther: parseFloat(document.getElementById('cfg-oil-other')?.value || '5')
+  };
+}
+
+function renderReplenishmentReport() {
+  const container = document.getElementById('replenishment-tbody');
+  if (!container) return;
+
+  // Inicializar fecha de hoy si está vacío
+  const dateInput = document.getElementById('rep-date-filter');
+  if (dateInput && !dateInput.value) {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    dateInput.value = `${year}-${month}-${day}`;
+  }
+
+  const selectedDate = dateInput ? dateInput.value : '';
+  const selectedShift = document.getElementById('rep-shift-filter')?.value || 'all';
+
+  // Filtrar ventas
+  const filteredSales = state.salesHistory.filter(sale => {
+    const saleDateStr = sale.date.split('T')[0];
+    const matchDate = !selectedDate || (saleDateStr === selectedDate);
+    const matchShift = selectedShift === 'all' || (sale.shift === selectedShift);
+    return matchDate && matchShift;
+  });
+
+  // Contadores
+  const counts = {
+    pollo: 0,
+    arrachera: 0,
+    tofu: 0,
+    camaron: 0
+  };
+
+  let polloWeightG = 0;
+  let arracheraWeightG = 0;
+  let tofuWeightG = 0;
+  let camaronWeightG = 0;
+  let vegWeightG = 0;
+  let oilMl = 0;
+
+  const cfg = getRecipeConfigs();
+
+  filteredSales.forEach(sale => {
+    if (!sale.items) return;
+    sale.items.forEach(item => {
+      const qty = item.quantity || 1;
+      const protein = classifyItemProtein(item);
+      if (protein && counts[protein] !== undefined) {
+        counts[protein] += qty;
+      }
+
+      const itemId = (item.id || '').toLowerCase();
+      const itemCat = (item.category || '').toLowerCase();
+      const itemName = (item.name || '').toLowerCase();
+
+      const isEntrada = itemId.startsWith('ent-') || itemCat === 'entradas' || itemCat === 'khai vị (entradas)';
+      const isDrink = itemCat === 'bebidas' || itemId.startsWith('beb-') || itemCat.includes('bebida');
+
+      if (!isDrink) {
+        // Peso de proteínas
+        if (protein === 'pollo') {
+          polloWeightG += qty * (isEntrada ? cfg.entProtein : cfg.mainProtein);
+        } else if (protein === 'arrachera') {
+          arracheraWeightG += qty * (isEntrada ? cfg.entProtein : cfg.mainProtein);
+        } else if (protein === 'tofu') {
+          tofuWeightG += qty * (isEntrada ? cfg.entProtein : cfg.mainTofu);
+        } else if (protein === 'camaron') {
+          camaronWeightG += qty * (isEntrada ? cfg.entProtein : cfg.mainShrimp);
+        }
+
+        // Peso de vegetales
+        vegWeightG += qty * (isEntrada ? cfg.entVeg : cfg.mainVeg);
+
+        // Volumen de aceite
+        const isFry = itemName.includes('stir') || itemName.includes('pad') || itemName.includes('curry') || itemName.includes('stickers') || itemName.includes('satay');
+        oilMl += qty * (isFry ? cfg.oilFry : cfg.oilOther);
+      }
+    });
+  });
+
+  const polloKg = polloWeightG / 1000;
+  const arracheraKg = arracheraWeightG / 1000;
+  const tofuKg = tofuWeightG / 1000;
+  const camaronKg = camaronWeightG / 1000;
+  const vegKg = vegWeightG / 1000;
+  const oilLiters = oilMl / 1000;
+
+  // Actualizar métricas UI
+  document.getElementById('rep-total-pollo').textContent = `${counts.pollo} ord / ${polloKg.toFixed(2)} kg`;
+  document.getElementById('rep-total-arrachera').textContent = `${counts.arrachera} ord / ${arracheraKg.toFixed(2)} kg`;
+  document.getElementById('rep-total-tofu').textContent = `${counts.tofu} ord / ${tofuKg.toFixed(2)} kg`;
+  document.getElementById('rep-total-camaron').textContent = `${counts.camaron} ord / ${camaronKg.toFixed(2)} kg`;
+
+  // Stock Objetivo sugerido (Par levels)
+  const defaultTargets = {
+    pollo: Math.max(5, Math.ceil(polloKg * 1.5)),
+    arrachera: Math.max(5, Math.ceil(arracheraKg * 1.5)),
+    tofu: Math.max(3, Math.ceil(tofuKg * 1.5)),
+    camaron: Math.max(4, Math.ceil(camaronKg * 1.5)),
+    verdura: Math.max(10, Math.ceil(vegKg * 1.5)),
+    aceite: Math.max(5, Math.ceil(oilLiters * 1.5))
+  };
+
+  if (!state.replenishmentStock) {
+    state.replenishmentStock = {
+      pollo: '',
+      arrachera: '',
+      tofu: '',
+      camaron: '',
+      verdura: '',
+      aceite: ''
+    };
+  }
+
+  const itemsList = [
+    { id: 'pollo', name: 'Pollo Pechuga / Filete', consumed: polloKg, unit: 'kg', defaultTarget: defaultTargets.pollo },
+    { id: 'arrachera', name: 'Arrachera de Res', consumed: arracheraKg, unit: 'kg', defaultTarget: defaultTargets.arrachera },
+    { id: 'tofu', name: 'Tofu Fresco', consumed: tofuKg, unit: 'kg', defaultTarget: defaultTargets.tofu },
+    { id: 'camaron', name: 'Camarón Limpio', consumed: camaronKg, unit: 'kg', defaultTarget: defaultTargets.camaron },
+    { id: 'verdura', name: 'Verduras Mezcla (Zanahoria, Col, Germen, etc.)', consumed: vegKg, unit: 'kg', defaultTarget: defaultTargets.verdura },
+    { id: 'aceite', name: 'Aceite de Cocina', consumed: oilLiters, unit: 'L', defaultTarget: defaultTargets.aceite }
+  ];
+
+  container.innerHTML = '';
+  itemsList.forEach(item => {
+    const stockFisico = state.replenishmentStock[item.id] !== undefined ? state.replenishmentStock[item.id] : '';
+    const targetStock = item.defaultTarget;
+    
+    let suggested = 0;
+    if (stockFisico === '') {
+      suggested = targetStock;
+    } else {
+      suggested = Math.max(0, targetStock - parseFloat(stockFisico || '0'));
+    }
+
+    const row = document.createElement('tr');
+    row.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+    row.innerHTML = `
+      <td style="padding: 12px; font-weight: 500; color: #fff;">${item.name}</td>
+      <td style="padding: 12px; text-align: right; color: rgba(255,255,255,0.7);">${item.consumed.toFixed(2)} ${item.unit}</td>
+      <td style="padding: 12px; text-align: right; color: #fff; font-weight: 600;">${targetStock} ${item.unit}</td>
+      <td style="padding: 12px; text-align: right;">
+        <input type="number" step="0.1" min="0" class="rep-stock-input" data-id="${item.id}" value="${stockFisico}" placeholder="0.0" style="width: 80px; padding: 4px 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 4px; text-align: right; font-size: 0.85rem;">
+      </td>
+      <td style="padding: 12px; text-align: right; color: var(--accent); font-weight: bold; font-size: 1.05rem;">
+        <span id="suggested-${item.id}">${suggested.toFixed(2)}</span> ${item.unit}
+      </td>
+    `;
+    
+    row.querySelector('.rep-stock-input').addEventListener('input', (e) => {
+      const val = e.target.value;
+      state.replenishmentStock[item.id] = val === '' ? '' : parseFloat(val);
+      
+      const span = document.getElementById(`suggested-${item.id}`);
+      if (span) {
+        let liveSuggested = 0;
+        if (val === '') {
+          liveSuggested = targetStock;
+        } else {
+          liveSuggested = Math.max(0, targetStock - parseFloat(val || '0'));
+        }
+        span.textContent = liveSuggested.toFixed(2);
+      }
+    });
+
+    container.appendChild(row);
+  });
+}
+
+function copyShoppingListToClipboard() {
+  const dateVal = document.getElementById('rep-date-filter')?.value || new Date().toISOString().split('T')[0];
+  const shiftVal = document.getElementById('rep-shift-filter')?.value || 'all';
+  const shiftText = shiftVal === 'all' ? 'Día Completo' : shiftVal;
+
+  let text = `*LISTA DE COMPRAS - BÁNH MÌ POS*\n`;
+  text += `📅 *Fecha:* ${dateVal}\n`;
+  text += `⏱️ *Turno:* ${shiftText}\n`;
+  text += `=========================\n\n`;
+
+  const rows = document.querySelectorAll('#replenishment-tbody tr');
+  let hasItems = false;
+
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 5) {
+      const name = cells[0].textContent.trim();
+      const suggestedText = cells[4].textContent.trim();
+      const valueStr = suggestedText.split(' ')[0];
+      const unit = suggestedText.split(' ')[1] || '';
+      const value = parseFloat(valueStr || '0');
+
+      if (value > 0) {
+        text += `• *${name}:* ${value.toFixed(2)} ${unit}\n`;
+        hasItems = true;
+      }
+    }
+  });
+
+  if (!hasItems) {
+    text += `_No se sugieren compras. ¡Inventario suficiente!_\n`;
+  }
+
+  text += `\n=========================\n`;
+  text += `_Generado automáticamente desde Bánh Mì POS_`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    alert('¡Lista de compras copiada al portapapeles en formato WhatsApp!');
+  }).catch(err => {
+    console.error('Error al copiar al portapapeles:', err);
+    alert('No se pudo copiar. Inténtalo de nuevo.');
+  });
 }
 
