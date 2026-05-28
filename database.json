@@ -693,7 +693,11 @@
       "id": 4,
       "name": "Mesa 4",
       "status": "free",
-      "currentOrder": null
+      "currentOrder": {
+        "items": [],
+        "waiter": "Lupita",
+        "shiftOpened": "Día Completo"
+      }
     },
     {
       "id": 5,
