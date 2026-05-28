@@ -3,7 +3,13 @@
     "masterPin": "19042609",
     "taxRate": 0.16,
     "serviceRate": 0.15,
-    "defaultInitialCash": 700
+    "defaultInitialCash": 700,
+    "users": {
+      "Lupita": "1234",
+      "Claudia": "5678",
+      "Citlali": "9012",
+      "Invitado": "0000"
+    }
   },
   "menu": [
     {
@@ -698,28 +704,8 @@
     {
       "id": 6,
       "name": "Mesa 6",
-      "status": "occupied",
-      "currentOrder": {
-        "items": [
-          {
-            "productId": "ent-miso",
-            "name": "Sopa Miso Clásica",
-            "price": 95,
-            "quantity": 1,
-            "options": [],
-            "notes": ""
-          },
-          {
-            "productId": "pf-curry-arrachera",
-            "name": "Curry de Coco Arrachera",
-            "price": 198,
-            "quantity": 3,
-            "options": [],
-            "notes": ""
-          }
-        ],
-        "shiftOpened": "Vespertino"
-      }
+      "status": "free",
+      "currentOrder": null
     },
     {
       "id": 7,
@@ -734,7 +720,46 @@
       "currentOrder": null
     }
   ],
-  "sales": [],
+  "sales": [
+    {
+      "id": "sale-1779988078132",
+      "tableId": 4,
+      "tableName": "Mesa 4",
+      "items": [
+        {
+          "productId": "pf-pad-pollo",
+          "name": "Pad Thai Pollo",
+          "price": 170,
+          "quantity": 2,
+          "options": [],
+          "notes": ""
+        },
+        {
+          "productId": "beb-limonada",
+          "name": "Limonada",
+          "price": 50,
+          "quantity": 1,
+          "options": [],
+          "notes": ""
+        }
+      ],
+      "subtotal": 390,
+      "tax": 53.793103448275815,
+      "service": 58.5,
+      "discount": 0,
+      "total": 390,
+      "paymentMethod": "cash",
+      "tip": 60,
+      "tipPaymentMethod": "cash",
+      "shift": "Vespertino",
+      "shiftStartedAt": "2026-05-26T03:46:48.654Z",
+      "openedInShift": "Vespertino",
+      "waiter": "Lupita",
+      "secondWaiter": "Claudia",
+      "closed": true,
+      "date": "2026-05-28T17:07:58.132Z"
+    }
+  ],
   "expenses": [
     {
       "id": "expense-1779739743082",
@@ -753,12 +778,21 @@
       "shiftStartedAt": "2026-05-25T23:06:36.039Z",
       "closed": true,
       "date": "2026-05-26T03:46:33.765Z"
+    },
+    {
+      "id": "expense-1779988102488",
+      "description": "Hielo",
+      "amount": 150,
+      "shift": "Vespertino",
+      "shiftStartedAt": "2026-05-26T03:46:48.654Z",
+      "closed": true,
+      "date": "2026-05-28T17:08:22.488Z"
     }
   ],
   "activeShift": {
-    "name": "Vespertino",
-    "startedAt": "2026-05-26T03:46:48.654Z",
-    "initialCash": 580
+    "name": "Día Completo",
+    "startedAt": "2026-05-28T17:15:39.042Z",
+    "initialCash": 700
   },
   "closedShifts": [
     {
@@ -3784,6 +3818,79 @@
       "expectedCash": 1400,
       "closed": true,
       "imported": true
+    },
+    {
+      "id": "shift-1779988539042",
+      "name": "Vespertino",
+      "startedAt": "2026-05-26T03:46:48.654Z",
+      "closedAt": "2026-05-26T15:46:48.654Z",
+      "initialCash": 580,
+      "cashSales": 390,
+      "cardSales": 0,
+      "qrSales": 0,
+      "totalSales": 390,
+      "cashTips": 0,
+      "cardTips": 0,
+      "totalTips": 0,
+      "tipCocina": 0,
+      "tipLupita": 0,
+      "tipClaudia": 0,
+      "tipCitlali": 0,
+      "tipInvitado": 0,
+      "totalExpenses": 150,
+      "expectedCash": 820,
+      "salesCount": 1,
+      "expenses": [
+        {
+          "id": "expense-1779988102488",
+          "description": "Hielo",
+          "amount": 150,
+          "shift": "Vespertino",
+          "shiftStartedAt": "2026-05-26T03:46:48.654Z",
+          "closed": true,
+          "date": "2026-05-28T17:08:22.488Z"
+        }
+      ],
+      "sales": [
+        {
+          "id": "sale-1779988078132",
+          "tableId": 4,
+          "tableName": "Mesa 4",
+          "items": [
+            {
+              "productId": "pf-pad-pollo",
+              "name": "Pad Thai Pollo",
+              "price": 170,
+              "quantity": 2,
+              "options": [],
+              "notes": ""
+            },
+            {
+              "productId": "beb-limonada",
+              "name": "Limonada",
+              "price": 50,
+              "quantity": 1,
+              "options": [],
+              "notes": ""
+            }
+          ],
+          "subtotal": 390,
+          "tax": 53.793103448275815,
+          "service": 58.5,
+          "discount": 0,
+          "total": 390,
+          "paymentMethod": "cash",
+          "tip": 60,
+          "tipPaymentMethod": "cash",
+          "shift": "Vespertino",
+          "shiftStartedAt": "2026-05-26T03:46:48.654Z",
+          "openedInShift": "Vespertino",
+          "waiter": "Lupita",
+          "secondWaiter": "Claudia",
+          "closed": true,
+          "date": "2026-05-28T17:07:58.132Z"
+        }
+      ]
     }
   ],
   "categories": [

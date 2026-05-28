@@ -12,11 +12,84 @@ const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'database.json');
 
 function getAutoShiftName() {
-  const hour = new Date().getHours();
-  if (hour >= 16 && hour < 22) {
-    return "Vespertino";
+  return "Día Completo";
+}
+
+function getWaiterTipShare(sale, waiterName) {
+  if (sale.waiter === waiterName) {
+    return sale.secondWaiter ? (sale.tip * 0.25) : (sale.tip * 0.5);
   }
-  return "Matutino";
+  if (sale.secondWaiter === waiterName) {
+    return sale.tip * 0.25;
+  }
+  return 0;
+}
+
+function autoCloseOldShift() {
+  const currentSales = db.sales.filter(s => !s.closed && s.shift === db.activeShift.name);
+  const currentExpenses = db.expenses.filter(e => !e.closed && e.shift === db.activeShift.name);
+
+  const cashSales = currentSales.filter(s => s.paymentMethod === 'cash').reduce((sum, s) => sum + s.total, 0);
+  const cardSales = currentSales.filter(s => s.paymentMethod === 'card').reduce((sum, s) => sum + s.total, 0);
+  const qrSales = currentSales.filter(s => s.paymentMethod === 'qr').reduce((sum, s) => sum + s.total, 0);
+  
+  const cashTips = currentSales.filter(s => s.tipPaymentMethod === 'cash').reduce((sum, s) => sum + s.tip, 0);
+  const cardTips = currentSales.filter(s => s.tipPaymentMethod === 'card').reduce((sum, s) => sum + s.tip, 0);
+  
+  const totalExpenses = currentExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalSales = cashSales + cardSales + qrSales;
+  const totalTips = cashTips + cardTips;
+  
+  const tipCocina = totalTips * 0.5;
+  const tipLupita = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Lupita'), 0);
+  const tipClaudia = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Claudia'), 0);
+  const tipCitlali = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Citlali'), 0);
+  const tipInvitado = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Invitado'), 0);
+
+  const expectedCash = db.activeShift.initialCash + cashSales + cashTips - totalExpenses;
+
+  const shiftReport = {
+    id: 'shift-' + Date.now(),
+    name: db.activeShift.name,
+    startedAt: db.activeShift.startedAt,
+    closedAt: new Date(new Date(db.activeShift.startedAt).getTime() + 12 * 60 * 60 * 1000).toISOString(),
+    initialCash: db.activeShift.initialCash,
+    cashSales,
+    cardSales,
+    qrSales,
+    totalSales,
+    cashTips,
+    cardTips,
+    totalTips,
+    tipCocina,
+    tipLupita,
+    tipClaudia,
+    tipCitlali,
+    tipInvitado,
+    totalExpenses,
+    expectedCash,
+    salesCount: currentSales.length,
+    expenses: currentExpenses,
+    sales: currentSales
+  };
+
+  db.closedShifts.push(shiftReport);
+
+  db.sales.forEach(s => {
+    if (!s.closed && s.shift === db.activeShift.name) s.closed = true;
+  });
+  db.expenses.forEach(e => {
+    if (!e.closed && e.shift === db.activeShift.name) e.closed = true;
+  });
+
+  const nextShiftName = getAutoShiftName();
+  db.activeShift = {
+    name: nextShiftName,
+    startedAt: new Date().toISOString(),
+    initialCash: db.settings.defaultInitialCash
+  };
+  saveDatabase();
+  console.log(`[Auto-Close] Cerrado corte antiguo "${shiftReport.name}" y abierto uno nuevo "${db.activeShift.name}".`);
 }
 
 // Cargar estado inicial desde database.json
@@ -39,6 +112,14 @@ function loadDatabase() {
       
       // Inicializar campos si no existen
       if (!db.settings.defaultInitialCash) db.settings.defaultInitialCash = 1000;
+      if (!db.settings.users) {
+        db.settings.users = {
+          "Lupita": "1234",
+          "Claudia": "5678",
+          "Citlali": "9012",
+          "Invitado": "0000"
+        };
+      }
       if (!db.expenses) db.expenses = [];
       if (!db.closedShifts) db.closedShifts = [];
       if (!db.categories) {
@@ -56,8 +137,20 @@ function loadDatabase() {
           initialCash: db.settings.defaultInitialCash
         };
         saveDatabase();
+      } else {
+        const shiftAgeHours = (Date.now() - new Date(db.activeShift.startedAt).getTime()) / (1000 * 60 * 60);
+        if (shiftAgeHours > 18) {
+          console.log(`[Auto-Close] Detectado corte con antigüedad de ${shiftAgeHours.toFixed(1)} horas. Iniciando auto-cierre...`);
+          autoCloseOldShift();
+        }
       }
     } else {
+      db.settings.users = {
+        "Lupita": "1234",
+        "Claudia": "5678",
+        "Citlali": "9012",
+        "Invitado": "0000"
+      };
       db.categories = [
         { id: "banhmi", name: "Bánh Mì" },
         { id: "pho", name: "Phở" },
@@ -91,13 +184,21 @@ loadDatabase();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API simple para verificar el PIN del Maestro
+// API simple para verificar el PIN del Maestro o Cajeras
 app.post('/api/auth', (req, res) => {
-  const { pin } = req.body;
-  if (pin === db.settings.masterPin) {
-    return res.json({ success: true, token: "master-session-token-1234" }); // Token simple simulado
+  const { pin, role, username } = req.body;
+  if (role === 'maestro') {
+    if (pin === db.settings.masterPin) {
+      return res.json({ success: true, token: "master-session-token-1234" }); // Token simple simulado
+    }
+    return res.status(401).json({ success: false, message: "PIN incorrecto" });
+  } else {
+    const userPin = db.settings.users && db.settings.users[username];
+    if (pin === userPin) {
+      return res.json({ success: true, token: `cajero-session-${username}` });
+    }
+    return res.status(401).json({ success: false, message: "PIN incorrecto" });
   }
-  return res.status(401).json({ success: false, message: "PIN incorrecto" });
 });
 
 // WebSocket Handler
@@ -114,7 +215,8 @@ wss.on('connection', (ws) => {
       settings: {
         taxRate: db.settings.taxRate,
         serviceRate: db.settings.serviceRate,
-        defaultInitialCash: db.settings.defaultInitialCash
+        defaultInitialCash: db.settings.defaultInitialCash,
+        users: db.settings.users
       },
       activeShift: db.activeShift,
       expenses: db.expenses || [],
@@ -130,7 +232,7 @@ wss.on('connection', (ws) => {
       console.log(`Evento recibido: ${type}`);
 
       // Para acciones administrativas se requiere validar el PIN
-      const isAdminAction = ['MENU_UPDATE', 'GET_SALES_REPORT', 'UPDATE_SETTINGS', 'CLOSE_SHIFT', 'CATEGORIES_UPDATE', 'UPDATE_HISTORICAL_DATA', 'DELETE_HISTORICAL_DATA', 'ADD_HISTORICAL_RECORD'].includes(type);
+      const isAdminAction = ['MENU_UPDATE', 'GET_SALES_REPORT', 'UPDATE_SETTINGS', 'CATEGORIES_UPDATE', 'UPDATE_HISTORICAL_DATA', 'DELETE_HISTORICAL_DATA', 'ADD_HISTORICAL_RECORD'].includes(type);
       if (isAdminAction && pin !== db.settings.masterPin) {
         ws.send(JSON.stringify({ type: 'ERROR', payload: 'No autorizado. PIN inválido.' }));
         return;
@@ -177,6 +279,8 @@ wss.on('connection', (ws) => {
               shift: db.activeShift.name,
               shiftStartedAt: db.activeShift.startedAt,
               openedInShift: table.currentOrder.shiftOpened || db.activeShift.name,
+              waiter: table.currentOrder.waiter || 'Sin Asignar',
+              secondWaiter: payload.secondWaiter || null,
               closed: false,
               date: new Date().toISOString()
             };
@@ -243,36 +347,40 @@ wss.on('connection', (ws) => {
           const totalExpenses = currentExpenses.reduce((sum, e) => sum + e.amount, 0);
           const totalSales = cashSales + cardSales + qrSales;
           const totalTips = cashTips + cardTips;
-          
-          // Calcular propina cruzada a entregar a personal del turno anterior (50%)
-          const crossShiftTipsOut = currentSales.filter(s => s.openedInShift && s.openedInShift !== db.activeShift.name).reduce((sum, s) => sum + s.tip * 0.5, 0);
-          const activeShiftTips = Math.max(0, totalTips - crossShiftTipsOut);
-
-          // Total caja: Caja Inicial + Efectivo Ventas + Efectivo Propinas - Gastos
-          const expectedCash = db.activeShift.initialCash + cashSales + cashTips - totalExpenses;
-
-          const shiftReport = {
-            id: 'shift-' + Date.now(),
-            name: db.activeShift.name,
-            startedAt: db.activeShift.startedAt,
-            closedAt: new Date().toISOString(),
-            initialCash: db.activeShift.initialCash,
-            cashSales,
-            cardSales,
-            qrSales,
-            totalSales,
-            cashTips,
-            cardTips,
-            totalTips,
-            crossShiftTipsOut,
-            tipCocina: activeShiftTips * 0.5,
-            tipMeseros: activeShiftTips * 0.5,
-            totalExpenses,
-            expectedCash,
-            salesCount: currentSales.length,
-            expenses: currentExpenses,
-            sales: currentSales
-          };
+          // Calcular propina al 50% Cocina y 50% por usuario/cajera
+          const tipCocina = totalTips * 0.5;
+          const tipLupita = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Lupita'), 0);
+          const tipClaudia = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Claudia'), 0);
+          const tipCitlali = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Citlali'), 0);
+          const tipInvitado = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Invitado'), 0);
+ 
+           // Total caja: Caja Inicial + Efectivo Ventas + Efectivo Propinas - Gastos
+           const expectedCash = db.activeShift.initialCash + cashSales + cashTips - totalExpenses;
+ 
+           const shiftReport = {
+             id: 'shift-' + Date.now(),
+             name: db.activeShift.name,
+             startedAt: db.activeShift.startedAt,
+             closedAt: new Date().toISOString(),
+             initialCash: db.activeShift.initialCash,
+             cashSales,
+             cardSales,
+             qrSales,
+             totalSales,
+             cashTips,
+             cardTips,
+             totalTips,
+             tipCocina,
+             tipLupita,
+             tipClaudia,
+             tipCitlali,
+             tipInvitado,
+             totalExpenses,
+             expectedCash,
+             salesCount: currentSales.length,
+             expenses: currentExpenses,
+             sales: currentSales
+           };
 
           // Registrar turno cerrado
           db.closedShifts.push(shiftReport);
@@ -349,6 +457,15 @@ wss.on('connection', (ws) => {
               closedShifts: db.closedShifts
             }
           });
+          if (target === 'sales') {
+            broadcast({
+              type: 'SALES_UPDATE',
+              payload: {
+                salesCount: db.sales.length,
+                salesToday: calculateSalesToday()
+              }
+            });
+          }
           break;
         }
         case 'DELETE_HISTORICAL_DATA': {
@@ -369,6 +486,15 @@ wss.on('connection', (ws) => {
               closedShifts: db.closedShifts
             }
           });
+          if (target === 'sales') {
+            broadcast({
+              type: 'SALES_UPDATE',
+              payload: {
+                salesCount: db.sales.length,
+                salesToday: calculateSalesToday()
+              }
+            });
+          }
           break;
         }
 
@@ -390,11 +516,14 @@ wss.on('connection', (ws) => {
         }
 
         case 'UPDATE_SETTINGS':
-          // payload: { defaultInitialCash }
+          // payload: { defaultInitialCash, users }
           if (payload.defaultInitialCash !== undefined) {
             db.settings.defaultInitialCash = Number(payload.defaultInitialCash);
             // Siempre actualizar la caja inicial del turno activo actual para reflejar el cambio de inmediato
             db.activeShift.initialCash = db.settings.defaultInitialCash;
+          }
+          if (payload.users !== undefined) {
+            db.settings.users = payload.users;
           }
           saveDatabase();
           // Broadcast la actualización a todos
