@@ -44,9 +44,20 @@
         </div>
       </div>
       
-      <!-- Input de contraseña (oculto por defecto) -->
-      <div class="pin-container" id="pin-section">
-        <label for="pin-input">PIN de Acceso Maestro</label>
+      <!-- Selector de Usuario Cajero (visible por defecto) -->
+      <div class="user-select-container" id="user-select-section" style="margin-top: 15px;">
+        <label for="user-select" style="display: block; font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Selecciona tu Usuario</label>
+        <select id="user-select" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; height: 42px; font-size: 0.95rem;">
+          <option value="Lupita">Lupita</option>
+          <option value="Claudia">Claudia</option>
+          <option value="Citlali">Citlali</option>
+          <option value="Invitado">Invitado</option>
+        </select>
+      </div>
+      
+      <!-- Input de contraseña -->
+      <div class="pin-container" id="pin-section" style="margin-top: 15px;">
+        <label for="pin-input" id="pin-label">PIN de Cajera</label>
         <div class="pin-input-wrapper">
           <input type="password" id="pin-input" maxlength="12" placeholder="••••••••" autocomplete="current-password">
         </div>
@@ -203,7 +214,7 @@
               </div>
 
               <!-- Registrar Gasto -->
-              <div class="expense-form" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+              <div class="expense-form" id="caja-expense-form" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
                 <h4 style="margin: 0 0 12px 0; color: #fff;"><i class="fa-solid fa-minus-circle" style="color: #ea4335;"></i> Registrar Gasto del Turno</h4>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                   <div>
@@ -287,14 +298,26 @@
                       <span><i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent);"></i> Reparto de Propinas (50/50)</span>
                       <strong id="bal-total-tips" style="color: var(--accent); font-weight: bold;">$0.00</strong>
                     </h5>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; margin-top: 6px;">
-                      <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; text-align: center;">
-                        <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.75rem;">Cocina (50%)</span>
-                        <strong id="bal-tip-kitchen" style="color: #fff; font-size: 1rem;">$0.00</strong>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; font-size: 0.8rem; margin-top: 6px;">
+                      <div style="background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px; text-align: center;">
+                        <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.7rem;">Cocina (50%)</span>
+                        <strong id="bal-tip-kitchen" style="color: #fff; font-size: 0.9rem;">$0.00</strong>
                       </div>
-                      <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; text-align: center;">
-                        <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.75rem;">Meseros (50%)</span>
-                        <strong id="bal-tip-waiters" style="color: #fff; font-size: 1rem;">$0.00</strong>
+                      <div style="background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px; text-align: center;">
+                        <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.7rem;">Lupita (50%)</span>
+                        <strong id="bal-tip-lupita" style="color: #fff; font-size: 0.9rem;">$0.00</strong>
+                      </div>
+                      <div style="background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px; text-align: center;">
+                        <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.7rem;">Claudia (50%)</span>
+                        <strong id="bal-tip-claudia" style="color: #fff; font-size: 0.9rem;">$0.00</strong>
+                      </div>
+                      <div style="background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px; text-align: center;">
+                        <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.7rem;">Citlali (50%)</span>
+                        <strong id="bal-tip-citlali" style="color: #fff; font-size: 0.9rem;">$0.00</strong>
+                      </div>
+                      <div style="background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px; text-align: center;">
+                        <span style="display: block; color: rgba(255,255,255,0.5); font-size: 0.7rem;">Invitado (50%)</span>
+                        <strong id="bal-tip-invitado" style="color: #fff; font-size: 0.9rem;">$0.00</strong>
                       </div>
                     </div>
                   </div>
@@ -302,7 +325,7 @@
               </div>
 
               <!-- Cierre de Turno -->
-              <div class="close-shift-box" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 15px;">
+              <div class="close-shift-box" id="caja-close-shift-box" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 15px;">
                 <h4 style="margin: 0 0 10px 0; color: #fff;"><i class="fa-solid fa-lock" style="color: var(--accent);"></i> Corte y Cierre de Turno</h4>
                 <div style="display: flex; gap: 10px; align-items: flex-end;">
                   <div style="flex: 1;">
@@ -543,8 +566,6 @@
                   <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Turno</label>
                   <select id="manual-shift-name" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
                     <option value="Día Completo">Día Completo</option>
-                    <option value="Matutino">Matutino</option>
-                    <option value="Vespertino">Vespertino</option>
                   </select>
                 </div>
                 <div>
@@ -567,6 +588,26 @@
                   <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Gastos ($)</label>
                   <input type="number" id="manual-shift-expenses" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
                 </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: var(--accent); margin-bottom: 4px;">Prop. Cocina ($)</label>
+                  <input type="number" id="manual-shift-tip-kitchen" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Prop. Lupita ($)</label>
+                  <input type="number" id="manual-shift-tip-lupita" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Prop. Claudia ($)</label>
+                  <input type="number" id="manual-shift-tip-claudia" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Prop. Citlali ($)</label>
+                  <input type="number" id="manual-shift-tip-citlali" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Prop. Invitado ($)</label>
+                  <input type="number" id="manual-shift-tip-invitado" placeholder="0.00" min="0" step="0.01" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; font-size: 0.8rem; height: 32px;">
+                </div>
                 <button id="btn-add-manual-shift" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem; height: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-plus"></i> Agregar</button>
               </div>
             </div>
@@ -575,7 +616,7 @@
                 <thead style="background: rgba(255,255,255,0.05); position: sticky; top: 0;">
                   <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
                     <th style="padding: 8px;">Cierre</th>
-                    <th style="padding: 8px;">Turno</th>
+                    <th style="padding: 8px;">Tipo</th>
                     <th style="padding: 8px; text-align: right;">Fondo Inicial ($)</th>
                     <th style="padding: 8px; text-align: right;">Ventas Efec. ($)</th>
                     <th style="padding: 8px; text-align: right;">Ventas Tarj. ($)</th>
@@ -583,7 +624,10 @@
                     <th style="padding: 8px; text-align: right;">Gastos ($)</th>
                     <th style="padding: 8px; text-align: right;">Esperado ($)</th>
                     <th style="padding: 8px; text-align: right;">Cocina (50%)</th>
-                    <th style="padding: 8px; text-align: right;">Meseros (50%)</th>
+                    <th style="padding: 8px; text-align: right;">Lupita (50%)</th>
+                    <th style="padding: 8px; text-align: right;">Claudia (50%)</th>
+                    <th style="padding: 8px; text-align: right;">Citlali (50%)</th>
+                    <th style="padding: 8px; text-align: right;">Invitado (50%)</th>
                     <th style="padding: 8px; text-align: center;">Acción</th>
                   </tr>
                 </thead>
@@ -594,24 +638,21 @@
             </div>
           </div>
 
-          <!-- Tabulador Semanal de Propinas y Calculadora -->
-          <div class="caja-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 300px; gap: 20px;">
+          <!-- Tabulador Semanal de Propinas -->
+          <div class="caja-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
             <div>
-              <h4 style="margin: 0 0 15px 0; color: #fff;"><i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent);"></i> Tabulador Semanal de Propinas (Clic para Sumar)</h4>
+              <h4 style="margin: 0 0 15px 0; color: #fff;"><i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent);"></i> Tabulador Semanal de Propinas (Calculado Automáticamente)</h4>
               <div style="border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
                   <thead style="background: rgba(255,255,255,0.05);">
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                      <th style="padding: 10px;" rowspan="2">Día</th>
-                      <th style="padding: 10px; text-align: center;" colspan="2">Matutino ($)</th>
-                      <th style="padding: 10px; text-align: center;" colspan="2">Vespertino ($)</th>
-                      <th style="padding: 10px; text-align: right;" rowspan="2">Total Día ($)</th>
-                    </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 0.8rem;">
-                      <th style="padding: 6px; text-align: right; color: var(--accent);">Cocina (50%)</th>
-                      <th style="padding: 6px; text-align: right; color: var(--color-gold);">Meseros (50%)</th>
-                      <th style="padding: 6px; text-align: right; color: var(--accent);">Cocina (50%)</th>
-                      <th style="padding: 6px; text-align: right; color: var(--color-gold);">Meseros (50%)</th>
+                      <th style="padding: 10px;">Día</th>
+                      <th style="padding: 10px; text-align: right; color: var(--accent);">Cocina (50%)</th>
+                      <th style="padding: 10px; text-align: right; color: var(--color-gold);">Lupita (50%)</th>
+                      <th style="padding: 10px; text-align: right; color: var(--color-gold);">Claudia (50%)</th>
+                      <th style="padding: 10px; text-align: right; color: var(--color-gold);">Citlali (50%)</th>
+                      <th style="padding: 10px; text-align: right; color: var(--color-gold);">Invitado (50%)</th>
+                      <th style="padding: 10px; text-align: right;">Total Día ($)</th>
                     </tr>
                   </thead>
                   <tbody id="weekly-tips-tbody">
@@ -620,38 +661,34 @@
                 </table>
               </div>
             </div>
-            
-            <!-- Calculadora Integrada -->
-            <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between;">
-              <div>
-                <h5 style="margin: 0 0 10px 0; color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">Calculadora de Propinas</h5>
-                <p style="font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-bottom: 12px; line-height: 1.3;">
-                  Haz clic en las celdas del tabulador de la izquierda para sumar o restar las propinas de turnos específicos para un empleado.
-                </p>
-                <div id="tip-calculator-selections" style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto; margin-bottom: 15px;">
-                  <span style="color: rgba(255,255,255,0.3); font-style: italic;">Sin turnos seleccionados...</span>
-                </div>
-              </div>
-              <div style="border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                  <span style="font-size: 0.85rem; color: rgba(255,255,255,0.7);">Suma Total:</span>
-                  <strong id="tip-calculator-total" style="font-size: 1.3rem; color: var(--accent);">$0.00</strong>
-                </div>
-                <button id="btn-clear-tip-calculator" class="btn btn-outline btn-block" style="padding: 8px 12px; font-size: 12px;"><i class="fa-solid fa-eraser"></i> Limpiar Selección</button>
-              </div>
-            </div>
           </div>
 
           <!-- Ajustes de Caja -->
           <div class="caja-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-top: 20px;">
             <h4 style="margin: 0 0 15px 0; color: #fff;"><i class="fa-solid fa-gear" style="color: var(--accent);"></i> Ajustes del Sistema</h4>
-            <div style="display: flex; gap: 15px; align-items: flex-end; max-width: 500px;">
-              <div style="flex: 1;">
-                <label style="display: block; font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Fondo Inicial de Caja por Defecto ($)</label>
-                <input type="number" id="setting-default-initial-cash" value="1000" min="0" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; align-items: flex-end; margin-bottom: 15px;">
+              <div>
+                <label style="display: block; font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">Fondo de Caja ($)</label>
+                <input type="number" id="setting-default-initial-cash" value="1000" min="0" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; height: 35px;">
               </div>
-              <button id="btn-save-settings" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar Ajuste</button>
+              <div>
+                <label style="display: block; font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">PIN Lupita</label>
+                <input type="password" id="setting-pin-lupita" placeholder="••••" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; height: 35px;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">PIN Claudia</label>
+                <input type="password" id="setting-pin-claudia" placeholder="••••" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; height: 35px;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">PIN Citlali</label>
+                <input type="password" id="setting-pin-citlali" placeholder="••••" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; height: 35px;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-bottom: 4px;">PIN Invitado</label>
+                <input type="password" id="setting-pin-invitado" placeholder="••••" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; height: 35px;">
+              </div>
             </div>
+            <button id="btn-save-settings" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar Ajustes</button>
           </div>
         </div>
 
@@ -892,6 +929,21 @@
               <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
                 <input type="radio" name="chk-tip-method" value="card"> Tarjeta
               </label>
+            </div>
+          </div>
+
+          <div class="chk-row tip-split-row" style="margin-top: 8px; flex-direction: column; align-items: flex-start; gap: 6px;">
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; width: 100%;">
+              <input type="checkbox" id="chk-tip-split-enable"> <span style="color: var(--accent);">Dividir propina con otro mesero</span>
+            </label>
+            <div id="tip-split-selector-box" style="display: none; width: 100%; margin-top: 5px;">
+              <label for="chk-second-waiter" style="font-size: 0.8rem; color: rgba(255,255,255,0.7); display: block; margin-bottom: 4px;">Selecciona el Segundo Mesero:</label>
+              <select id="chk-second-waiter" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 6px; font-size: 0.85rem; height: 36px;">
+                <option value="Lupita">Lupita</option>
+                <option value="Claudia">Claudia</option>
+                <option value="Citlali">Citlali</option>
+                <option value="Invitado">Invitado</option>
+              </select>
             </div>
           </div>
 

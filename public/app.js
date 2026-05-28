@@ -652,7 +652,8 @@ const DEFAULT_TABLES = [
 // ==========================================
 const state = {
   role: null,          // 'cajero' | 'maestro'
-  token: null,         // Token del Maestro
+  currentUser: null,   // Nombre del usuario Cajero (Lupita, Claudia, Citlali, Invitado)
+  token: null,         // Token del Maestro/Cajero
   menu: [],            // Catálogo de productos
   tables: [],          // Mapa de mesas
   activeTableId: null, // ID de la mesa seleccionada actualmente
@@ -666,7 +667,13 @@ const state = {
   settings: {
     taxRate: 0.16,
     serviceRate: 0.15,
-    masterPin: "19042609"
+    masterPin: "19042609",
+    users: {
+      "Lupita": "1234",
+      "Claudia": "5678",
+      "Citlali": "9012",
+      "Invitado": "0000"
+    }
   }
 };
 
@@ -694,10 +701,14 @@ if (document.readyState === 'loading') {
 function checkSession() {
   const savedRole = storage.sessionGet('pos_role');
   const savedToken = storage.sessionGet('pos_token');
+  const savedUsername = storage.sessionGet('pos_username');
 
   if (savedRole) {
     state.role = savedRole;
     state.token = savedToken;
+    if (savedRole === 'cajero' && savedUsername) {
+      state.currentUser = savedUsername;
+    }
     
     // Cambiar de pantalla
     document.getElementById('login-screen').classList.remove('active');
@@ -762,6 +773,9 @@ function connectWebSocket() {
             state.settings.taxRate = payload.settings.taxRate;
             state.settings.serviceRate = payload.settings.serviceRate;
             state.settings.defaultInitialCash = payload.settings.defaultInitialCash || 1000;
+            if (payload.settings.users) {
+              state.settings.users = payload.settings.users;
+            }
             state.activeShift = payload.activeShift;
             state.expenses = payload.expenses || [];
             state.closedShifts = payload.closedShifts || [];
@@ -770,6 +784,12 @@ function connectWebSocket() {
             const inputDefaultInitialCash = document.getElementById('setting-default-initial-cash');
             if (inputDefaultInitialCash) {
               inputDefaultInitialCash.value = state.settings.defaultInitialCash;
+            }
+            if (state.settings.users) {
+              if (document.getElementById('setting-pin-lupita')) document.getElementById('setting-pin-lupita').value = state.settings.users.Lupita || '';
+              if (document.getElementById('setting-pin-claudia')) document.getElementById('setting-pin-claudia').value = state.settings.users.Claudia || '';
+              if (document.getElementById('setting-pin-citlali')) document.getElementById('setting-pin-citlali').value = state.settings.users.Citlali || '';
+              if (document.getElementById('setting-pin-invitado')) document.getElementById('setting-pin-invitado').value = state.settings.users.Invitado || '';
             }
             const inputNextInitialCash = document.getElementById('next-initial-cash');
             if (inputNextInitialCash) {
@@ -803,6 +823,12 @@ function connectWebSocket() {
             const settingInput = document.getElementById('setting-default-initial-cash');
             if (settingInput) {
               settingInput.value = state.settings.defaultInitialCash;
+            }
+            if (state.settings.users) {
+              if (document.getElementById('setting-pin-lupita')) document.getElementById('setting-pin-lupita').value = state.settings.users.Lupita || '';
+              if (document.getElementById('setting-pin-claudia')) document.getElementById('setting-pin-claudia').value = state.settings.users.Claudia || '';
+              if (document.getElementById('setting-pin-citlali')) document.getElementById('setting-pin-citlali').value = state.settings.users.Citlali || '';
+              if (document.getElementById('setting-pin-invitado')) document.getElementById('setting-pin-invitado').value = state.settings.users.Invitado || '';
             }
             const nextInput = document.getElementById('next-initial-cash');
             if (nextInput) {
@@ -849,6 +875,10 @@ function connectWebSocket() {
             if (document.getElementById('maestro-tab-replenishment') && document.getElementById('maestro-tab-replenishment').classList.contains('active')) {
               renderReplenishmentReport();
             }
+            // Recalculate and update today's stats for dashboard
+            const salesCount = state.salesHistory.length;
+            const salesToday = calculateSalesTodayLocal();
+            updateDashboardStats(salesCount, salesToday);
             break;
 
           case 'EXPENSES_UPDATE':
@@ -883,6 +913,10 @@ function connectWebSocket() {
             if (document.getElementById('maestro-tab-replenishment') && document.getElementById('maestro-tab-replenishment').classList.contains('active')) {
               renderReplenishmentReport();
             }
+            // Recalculate and update today's stats for dashboard
+            const salesCountList = state.salesHistory.length;
+            const salesTodayList = calculateSalesTodayLocal();
+            updateDashboardStats(salesCountList, salesTodayList);
             break;
 
           case 'PAY_SUCCESS':
@@ -1037,9 +1071,14 @@ function handleLocalAction(type, payload) {
         }
       }
       saveLocalState();
+      renderSalesHistory();
       renderExpenses();
       renderShiftBalance();
       renderFinancialReports();
+      // Update local dashboard stats
+      const salesCount = state.salesHistory.length;
+      const salesToday = calculateSalesTodayLocal();
+      updateDashboardStats(salesCount, salesToday);
       break;
     }
     case 'DELETE_HISTORICAL_DATA': {
@@ -1052,9 +1091,14 @@ function handleLocalAction(type, payload) {
         state.closedShifts = state.closedShifts.filter(c => c.id !== id);
       }
       saveLocalState();
+      renderSalesHistory();
       renderExpenses();
       renderShiftBalance();
       renderFinancialReports();
+      // Update local dashboard stats
+      const salesCount = state.salesHistory.length;
+      const salesToday = calculateSalesTodayLocal();
+      updateDashboardStats(salesCount, salesToday);
       break;
     }
     case 'ADD_HISTORICAL_RECORD': {
@@ -1115,6 +1159,8 @@ function handleLocalAction(type, payload) {
           paymentMethod: payload.paymentMethod,
           tip: Number(payload.tip || 0),
           tipPaymentMethod: payload.tipPaymentMethod || 'cash',
+          waiter: table.currentOrder.waiter || state.currentUser || 'Lupita',
+          secondWaiter: payload.secondWaiter || null,
           shift: state.activeShift ? state.activeShift.name : 'Matutino',
           shiftStartedAt: state.activeShift ? state.activeShift.startedAt : new Date().toISOString(),
           openedInShift: table.currentOrder.shiftOpened || (state.activeShift ? state.activeShift.name : 'Matutino'),
@@ -1182,9 +1228,6 @@ function handleLocalAction(type, payload) {
       const totalSales = cashSales + cardSales + qrSales;
       const totalTips = cashTips + cardTips;
       
-      const crossShiftTipsOut = currentSales.filter(s => s.openedInShift && s.openedInShift !== state.activeShift.name).reduce((sum, s) => sum + s.tip * 0.5, 0);
-      const activeShiftTips = Math.max(0, totalTips - crossShiftTipsOut);
-
       const expectedCash = state.activeShift.initialCash + cashSales + cashTips - totalExpenses;
 
       const shiftReport = {
@@ -1200,9 +1243,11 @@ function handleLocalAction(type, payload) {
         cashTips,
         cardTips,
         totalTips,
-        crossShiftTipsOut,
-        tipCocina: activeShiftTips * 0.5,
-        tipMeseros: activeShiftTips * 0.5,
+        tipCocina: totalTips * 0.5,
+        tipLupita: currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Lupita'), 0),
+        tipClaudia: currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Claudia'), 0),
+        tipCitlali: currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Citlali'), 0),
+        tipInvitado: currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Invitado'), 0),
         totalExpenses,
         expectedCash,
         salesCount: currentSales.length,
@@ -1220,7 +1265,7 @@ function handleLocalAction(type, payload) {
       });
 
       // Nuevo turno automático
-      const nextShiftName = (new Date().getHours() >= 16 && new Date().getHours() < 22) ? "Vespertino" : "Matutino";
+      const nextShiftName = "Día Completo";
       state.activeShift = {
         name: nextShiftName,
         startedAt: new Date().toISOString(),
@@ -1291,13 +1336,20 @@ function setupEventListeners() {
   const roleMaestro = document.getElementById('role-maestro-btn');
   const pinSection = document.getElementById('pin-section');
   const pinInput = document.getElementById('pin-input');
+  const userSelectSection = document.getElementById('user-select-section');
+  const pinLabel = document.getElementById('pin-label');
   
   if (roleCajero) {
     roleCajero.addEventListener('click', () => {
       roleCajero.classList.add('active');
       if (roleMaestro) roleMaestro.classList.remove('active');
-      if (pinSection) pinSection.style.display = 'none';
-      if (pinInput) pinInput.value = '';
+      if (userSelectSection) userSelectSection.style.display = 'block';
+      if (pinSection) pinSection.style.display = 'block';
+      if (pinLabel) pinLabel.textContent = 'PIN de Cajera';
+      if (pinInput) {
+        pinInput.value = '';
+        pinInput.focus();
+      }
     });
   }
 
@@ -1305,8 +1357,13 @@ function setupEventListeners() {
     roleMaestro.addEventListener('click', () => {
       roleMaestro.classList.add('active');
       if (roleCajero) roleCajero.classList.remove('active');
+      if (userSelectSection) userSelectSection.style.display = 'none';
       if (pinSection) pinSection.style.display = 'block';
-      if (pinInput) pinInput.focus();
+      if (pinLabel) pinLabel.textContent = 'PIN de Acceso Maestro';
+      if (pinInput) {
+        pinInput.value = '';
+        pinInput.focus();
+      }
     });
   }
 
@@ -1433,6 +1490,14 @@ function setupEventListeners() {
     });
   }
 
+  const chkTipSplitEnable = document.getElementById('chk-tip-split-enable');
+  const tipSplitSelectorBox = document.getElementById('tip-split-selector-box');
+  if (chkTipSplitEnable && tipSplitSelectorBox) {
+    chkTipSplitEnable.addEventListener('change', (e) => {
+      tipSplitSelectorBox.style.display = e.target.checked ? 'block' : 'none';
+    });
+  }
+
   const paymentMethods = document.querySelector('.payment-methods-grid');
   if (paymentMethods) {
     paymentMethods.addEventListener('click', (e) => {
@@ -1498,6 +1563,12 @@ function setupEventListeners() {
       const totalTips = parseFloat(document.getElementById('manual-shift-totaltips').value || '0');
       const totalExpenses = parseFloat(document.getElementById('manual-shift-expenses').value || '0');
 
+      const tipCocina = parseFloat(document.getElementById('manual-shift-tip-kitchen').value || '0');
+      const tipLupita = parseFloat(document.getElementById('manual-shift-tip-lupita').value || '0');
+      const tipClaudia = parseFloat(document.getElementById('manual-shift-tip-claudia').value || '0');
+      const tipCitlali = parseFloat(document.getElementById('manual-shift-tip-citlali').value || '0');
+      const tipInvitado = parseFloat(document.getElementById('manual-shift-tip-invitado').value || '0');
+
       // Create closedAt timestamp (set to 18:00 of selected date)
       const parts = dateVal.split('-');
       const closedAtDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 18, 0, 0);
@@ -1508,8 +1579,6 @@ function setupEventListeners() {
       const cashTips = totalTips * 0.4;
       const cardTips = totalTips * 0.6;
       const expectedCash = initialCash + cashSales + cashTips - totalExpenses;
-      const tipCocina = totalTips * 0.5;
-      const tipMeseros = totalTips * 0.5;
 
       const record = {
         id: 'manual-added-' + dateVal + '-' + Date.now(),
@@ -1526,7 +1595,10 @@ function setupEventListeners() {
         totalTips,
         crossShiftTipsOut: 0,
         tipCocina,
-        tipMeseros,
+        tipLupita,
+        tipClaudia,
+        tipCitlali,
+        tipInvitado,
         totalExpenses,
         expectedCash,
         closed: true,
@@ -1548,6 +1620,24 @@ function setupEventListeners() {
       document.getElementById('manual-shift-cardsales').value = '';
       document.getElementById('manual-shift-totaltips').value = '';
       document.getElementById('manual-shift-expenses').value = '';
+      document.getElementById('manual-shift-tip-kitchen').value = '';
+      document.getElementById('manual-shift-tip-lupita').value = '';
+      document.getElementById('manual-shift-tip-claudia').value = '';
+      document.getElementById('manual-shift-tip-citlali').value = '';
+      document.getElementById('manual-shift-tip-invitado').value = '';
+    });
+  }
+
+  // Add auto-fill listener when typing total tips
+  const manualTotalTipsInput = document.getElementById('manual-shift-totaltips');
+  if (manualTotalTipsInput) {
+    manualTotalTipsInput.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value) || 0;
+      document.getElementById('manual-shift-tip-kitchen').value = (val * 0.5).toFixed(2);
+      document.getElementById('manual-shift-tip-lupita').value = (val * 0.5 / 3).toFixed(2);
+      document.getElementById('manual-shift-tip-claudia').value = (val * 0.5 / 3).toFixed(2);
+      document.getElementById('manual-shift-tip-citlali').value = (val * 0.5 / 3).toFixed(2);
+      document.getElementById('manual-shift-tip-invitado').value = '0.00';
     });
   }
 
@@ -1576,15 +1666,9 @@ function setupEventListeners() {
       const nextInitialCashInput = document.getElementById('next-initial-cash');
       const nextInitialCash = parseFloat(nextInitialCashInput.value || 1000);
 
-      const pin = prompt('Ingresa el PIN Maestro para autorizar el Cierre de Turno:');
-      if (!pin) return;
-
-      if (pin !== state.settings.masterPin) {
-        alert('PIN Maestro incorrecto. Cierre de turno cancelado.');
-        return;
+      if (confirm('¿Estás seguro de que deseas cerrar el corte de caja del día actual?')) {
+        sendWSMessage('CLOSE_SHIFT', { nextInitialCash });
       }
-
-      sendWSMessage('CLOSE_SHIFT', { nextInitialCash }, pin);
     });
   }
 
@@ -1599,7 +1683,14 @@ function setupEventListeners() {
         return;
       }
 
-      sendWSMessage('UPDATE_SETTINGS', { defaultInitialCash });
+      const users = {
+        Lupita: document.getElementById('setting-pin-lupita')?.value || '1234',
+        Claudia: document.getElementById('setting-pin-claudia')?.value || '5678',
+        Citlali: document.getElementById('setting-pin-citlali')?.value || '9012',
+        Invitado: document.getElementById('setting-pin-invitado')?.value || '0000'
+      };
+
+      sendWSMessage('UPDATE_SETTINGS', { defaultInitialCash, users });
       alert('Guardando ajustes...');
     });
   }
@@ -1678,14 +1769,6 @@ function setupEventListeners() {
     });
   }
 
-  const btnClearTipCalc = document.getElementById('btn-clear-tip-calculator');
-  if (btnClearTipCalc) {
-    btnClearTipCalc.addEventListener('click', () => {
-      state.selectedTips = [];
-      renderWeeklyTipsTable();
-      renderTipCalculator();
-    });
-  }
 
   const btnRefreshRep = document.getElementById('btn-refresh-rep');
   if (btnRefreshRep) {
@@ -1704,6 +1787,12 @@ function setupEventListeners() {
   if (btnCopyRepWhatsapp) {
     btnCopyRepWhatsapp.addEventListener('click', copyShoppingListToClipboard);
   }
+
+  // Inicializar la visibilidad de los campos del login según el rol activo por defecto
+  const activeRoleBtn = document.querySelector('.role-option.active');
+  if (activeRoleBtn) {
+    activeRoleBtn.click();
+  }
 }
 
 // ==========================================
@@ -1715,22 +1804,14 @@ function executeLogin() {
   const errorMsg = document.getElementById('pin-error');
   if (errorMsg) errorMsg.style.display = 'none';
 
-  if (!isMaestro) {
-    console.log("Acceso como Cajero seleccionado");
-    storage.sessionSet('pos_role', 'cajero');
-    state.role = 'cajero';
-    
-    document.getElementById('login-screen').classList.remove('active');
-    document.getElementById('app-screen').classList.add('active');
-    updateUIForRole();
-  } else {
-    const pin = document.getElementById('pin-input').value;
-    if (!pin) {
-      alert('Por favor ingresa tu PIN Maestro.');
-      return;
-    }
+  const pin = document.getElementById('pin-input').value;
+  if (!pin) {
+    alert(isMaestro ? 'Por favor ingresa tu PIN Maestro.' : 'Por favor ingresa tu PIN de Cajera.');
+    return;
+  }
 
-    if (state.isOfflineMode) {
+  if (state.isOfflineMode) {
+    if (isMaestro) {
       if (pin === state.settings.masterPin) {
         storage.sessionSet('pos_role', 'maestro');
         storage.sessionSet('pos_token', 'local-token-offline');
@@ -1747,33 +1828,60 @@ function executeLogin() {
         document.getElementById('pin-input').focus();
       }
     } else {
-      fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error('PIN incorrecto');
-        return res.json();
-      })
-      .then(data => {
+      const username = document.getElementById('user-select').value;
+      const userPin = state.settings.users ? state.settings.users[username] : (username === 'Lupita' ? '1234' : username === 'Claudia' ? '5678' : username === 'Citlali' ? '9012' : '0000');
+      if (pin === userPin) {
+        storage.sessionSet('pos_role', 'cajero');
+        storage.sessionSet('pos_username', username);
+        storage.sessionSet('pos_token', 'local-cajero-token');
+        state.role = 'cajero';
+        state.currentUser = username;
+        
+        document.getElementById('login-screen').classList.remove('active');
+        document.getElementById('app-screen').classList.add('active');
+        updateUIForRole();
+      } else {
+        if (errorMsg) errorMsg.style.display = 'block';
+        document.getElementById('pin-input').value = '';
+        document.getElementById('pin-input').focus();
+      }
+    }
+  } else {
+    const username = isMaestro ? 'Maestro' : document.getElementById('user-select').value;
+    fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, role: isMaestro ? 'maestro' : 'cajero', username })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('PIN incorrecto');
+      return res.json();
+    })
+    .then(data => {
+      if (isMaestro) {
         storage.sessionSet('pos_role', 'maestro');
         storage.sessionSet('pos_token', data.token);
         storage.sessionSet('pos_pin', pin);
         state.role = 'maestro';
         state.token = data.token;
-        
-        document.getElementById('login-screen').classList.remove('active');
-        document.getElementById('app-screen').classList.add('active');
-        updateUIForRole();
         requestSalesReport();
-      })
-      .catch(err => {
-        if (errorMsg) errorMsg.style.display = 'block';
-        document.getElementById('pin-input').value = '';
-        document.getElementById('pin-input').focus();
-      });
-    }
+      } else {
+        storage.sessionSet('pos_role', 'cajero');
+        storage.sessionSet('pos_username', username);
+        storage.sessionSet('pos_token', data.token);
+        state.role = 'cajero';
+        state.currentUser = username;
+      }
+      
+      document.getElementById('login-screen').classList.remove('active');
+      document.getElementById('app-screen').classList.add('active');
+      updateUIForRole();
+    })
+    .catch(err => {
+      if (errorMsg) errorMsg.style.display = 'block';
+      document.getElementById('pin-input').value = '';
+      document.getElementById('pin-input').focus();
+    });
   }
 }
 
@@ -1798,8 +1906,18 @@ function updateUIForRole() {
   } else {
     if (maestroView) maestroView.classList.remove('active');
     if (cajeroView) cajeroView.classList.add('active');
-    if (roleLabel) roleLabel.textContent = 'Cajero';
+    if (roleLabel) roleLabel.textContent = `Cajero (${state.currentUser || 'Invitado'})`;
     if (viewTitle) viewTitle.textContent = 'Punto de Venta (Local)';
+
+    const expForm = document.getElementById('caja-expense-form');
+    const closeBox = document.getElementById('caja-close-shift-box');
+    if (state.currentUser === 'Invitado') {
+      if (expForm) expForm.style.display = 'none';
+      if (closeBox) closeBox.style.display = 'none';
+    } else {
+      if (expForm) expForm.style.display = 'block';
+      if (closeBox) closeBox.style.display = 'block';
+    }
   }
 }
 
@@ -1879,8 +1997,42 @@ function updateOrderPanel() {
   if (headerInfo) {
     headerInfo.innerHTML = `
       <h3>${table.name}</h3>
-      <div class="order-meta">Estado: <strong>${statusStr}</strong></div>
+      <div class="order-meta" style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
+        <div>Estado: <strong>${statusStr}</strong></div>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: rgba(255,255,255,0.7);">
+          <span>Atendido por:</span>
+          <select id="select-table-waiter" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 4px; padding: 2px 6px; font-size: 0.85rem; cursor: pointer;">
+            <option value="Lupita" ${table.currentOrder && table.currentOrder.waiter === 'Lupita' ? 'selected' : ''}>Lupita</option>
+            <option value="Claudia" ${table.currentOrder && table.currentOrder.waiter === 'Claudia' ? 'selected' : ''}>Claudia</option>
+            <option value="Citlali" ${table.currentOrder && table.currentOrder.waiter === 'Citlali' ? 'selected' : ''}>Citlali</option>
+            <option value="Invitado" ${table.currentOrder && table.currentOrder.waiter === 'Invitado' ? 'selected' : ''}>Invitado</option>
+          </select>
+        </div>
+      </div>
     `;
+    
+    // Attach change listener to waiter selector
+    const selectWaiter = document.getElementById('select-table-waiter');
+    if (selectWaiter) {
+      selectWaiter.addEventListener('change', (e) => {
+        const waiterVal = e.target.value;
+        if (!table.currentOrder) {
+          table.currentOrder = { items: [], waiter: waiterVal };
+        } else {
+          table.currentOrder.waiter = waiterVal;
+        }
+        
+        if (state.isOfflineMode) {
+          saveLocalState();
+        } else {
+          sendWSMessage('ORDER_UPDATE', {
+            tableId: table.id,
+            currentOrder: table.currentOrder,
+            status: table.status
+          });
+        }
+      });
+    }
   }
 
   const cartList = document.getElementById('cart-items-list');
@@ -2137,7 +2289,7 @@ function confirmAddItemToOrder() {
   if (!table) return;
 
   if (!table.currentOrder) {
-    table.currentOrder = { items: [] };
+    table.currentOrder = { items: [], waiter: state.currentUser || 'Lupita' };
   }
 
   table.currentOrder.items.push({
@@ -2214,6 +2366,27 @@ function openCheckoutModal() {
   const defaultPay = document.querySelector('.pay-method-card[data-method="cash"]');
   if (defaultPay) defaultPay.classList.add('active');
 
+  // Reset split tip UI and populate second waiter select
+  const chkTipSplitEnable = document.getElementById('chk-tip-split-enable');
+  const tipSplitSelectorBox = document.getElementById('tip-split-selector-box');
+  if (chkTipSplitEnable) chkTipSplitEnable.checked = false;
+  if (tipSplitSelectorBox) tipSplitSelectorBox.style.display = 'none';
+
+  const secondWaiterSelect = document.getElementById('chk-second-waiter');
+  if (secondWaiterSelect) {
+    secondWaiterSelect.innerHTML = '';
+    const waiters = ['Lupita', 'Claudia', 'Citlali', 'Invitado'];
+    const currentWaiter = table.currentOrder.waiter || state.currentUser || 'Sin Asignar';
+    waiters.forEach(w => {
+      if (w !== currentWaiter) {
+        const opt = document.createElement('option');
+        opt.value = w;
+        opt.textContent = w;
+        secondWaiterSelect.appendChild(opt);
+      }
+    });
+  }
+
   const modal = document.getElementById('checkout-modal');
   if (modal) modal.classList.add('active');
 }
@@ -2241,6 +2414,11 @@ function executePayment() {
   const tip = parseFloat(document.getElementById('chk-tip').value) || 0;
   const tipPaymentMethod = document.querySelector('input[name="chk-tip-method"]:checked').value;
 
+  const chkTipSplitEnable = document.getElementById('chk-tip-split-enable');
+  const secondWaiter = (chkTipSplitEnable && chkTipSplitEnable.checked)
+    ? (document.getElementById('chk-second-waiter')?.value || null)
+    : null;
+
   const modal = document.getElementById('checkout-modal');
   if (modal) modal.classList.remove('active');
 
@@ -2249,7 +2427,8 @@ function executePayment() {
     paymentMethod: paymentMethod,
     discount: discount,
     tip: tip,
-    tipPaymentMethod: tipPaymentMethod
+    tipPaymentMethod: tipPaymentMethod,
+    secondWaiter: secondWaiter
   });
 }
 
@@ -2430,16 +2609,22 @@ function renderSalesHistory() {
   const sortedSales = [...state.salesHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   sortedSales.forEach(sale => {
-    const row = document.createElement('div');
-    row.className = 'history-row';
-    row.style.gridTemplateColumns = '1fr 1.5fr 1fr 1fr 1fr 1fr 1fr 0.8fr';
-    row.style.alignItems = 'center';
+    const containerRow = document.createElement('div');
+    containerRow.className = 'history-row-container';
+    containerRow.style.borderBottom = '1px solid var(--border-color)';
+
+    const rowHeader = document.createElement('div');
+    rowHeader.className = 'history-row';
+    rowHeader.style.gridTemplateColumns = '1fr 1.5fr 1fr 1fr 1fr 1fr 1fr 0.8fr';
+    rowHeader.style.alignItems = 'center';
+    rowHeader.style.cursor = 'pointer';
+    rowHeader.style.borderBottom = 'none'; // Overwrite default border
     
     const idToPrint = sale.id.startsWith('sale-') ? sale.id.substring(5, 13).toUpperCase() : sale.id;
-    const dateFormatted = new Date(sale.date).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = new Date(sale.date).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
     const discText = sale.discount > 0 ? `-${formatCurrency(sale.discount)}` : '$0.00';
 
-    row.innerHTML = `
+    rowHeader.innerHTML = `
       <strong>#${idToPrint}</strong>
       <span style="font-size: 0.8rem;">${dateFormatted}</span>
       <span>Mesa ${sale.tableId}</span>
@@ -2453,23 +2638,68 @@ function renderSalesHistory() {
       </div>
     `;
 
-    row.querySelector('.btn-save-sale-edit').addEventListener('click', () => {
-      const total = parseFloat(row.querySelector('.edit-sale-total').value || '0');
-      const tip = parseFloat(row.querySelector('.edit-sale-tip').value || '0');
+    // Render items list inside details div
+    const rowDetails = document.createElement('div');
+    rowDetails.className = 'history-row-details';
+    rowDetails.style.display = 'none';
+    rowDetails.style.padding = '12px 20px';
+    rowDetails.style.background = 'rgba(0,0,0,0.2)';
+    rowDetails.style.borderTop = '1px dashed rgba(255,255,255,0.05)';
+    rowDetails.style.fontSize = '0.85rem';
+
+    let itemsHTML = '<div style="font-weight: bold; color: var(--accent); margin-bottom: 6px;"><i class="fa-solid fa-receipt"></i> Detalle de Consumo:</div>';
+    if (sale.items && sale.items.length > 0) {
+      sale.items.forEach(item => {
+        const optStr = item.options && item.options.length > 0 ? ` <span style="color:var(--accent); font-size:0.75rem;">(+${item.options.join(', ')})</span>` : '';
+        const noteStr = item.notes ? ` <span style="font-style: italic; color: rgba(255,255,255,0.45); font-size:0.75rem;">[Nota: ${item.notes}]</span>` : '';
+        itemsHTML += `
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(255,255,255,0.03); padding: 4px 0;">
+            <span><strong style="color: var(--color-gold); font-size:0.8rem;">${item.quantity}x</strong> ${item.name}${optStr}${noteStr}</span>
+            <strong style="color: #fff;">${formatCurrency(item.price * item.quantity)}</strong>
+          </div>
+        `;
+      });
+    } else {
+      itemsHTML += '<div style="color: rgba(255,255,255,0.4); font-style: italic;">Sin artículos registrados (Corte Manual)</div>';
+    }
+    rowDetails.innerHTML = itemsHTML;
+
+    // Toggle details on header click, ignoring input/button clicks
+    rowHeader.addEventListener('click', (e) => {
+      if (e.target.closest('input') || e.target.closest('button')) return;
+      const isVisible = rowDetails.style.display === 'block';
+      rowDetails.style.display = isVisible ? 'none' : 'block';
+    });
+
+    rowHeader.querySelector('.btn-save-sale-edit').addEventListener('click', () => {
+      const total = parseFloat(rowHeader.querySelector('.edit-sale-total').value || '0');
+      const tip = parseFloat(rowHeader.querySelector('.edit-sale-tip').value || '0');
       updateHistoricalRecord('sales', sale.id, { total, tip });
     });
 
-    row.querySelector('.btn-delete-sale').addEventListener('click', () => {
+    rowHeader.querySelector('.btn-delete-sale').addEventListener('click', () => {
       deleteHistoricalRecord('sales', sale.id);
     });
 
-    container.appendChild(row);
+    containerRow.appendChild(rowHeader);
+    containerRow.appendChild(rowDetails);
+    container.appendChild(containerRow);
   });
 }
 
 // ==========================================
 // UTILERÍAS / HELPERS
 // ==========================================
+function getWaiterTipShare(sale, waiterName) {
+  if (sale.waiter === waiterName) {
+    return sale.secondWaiter ? (sale.tip * 0.25) : (sale.tip * 0.5);
+  }
+  if (sale.secondWaiter === waiterName) {
+    return sale.tip * 0.25;
+  }
+  return 0;
+}
+
 function formatCurrency(value) {
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -2599,22 +2829,28 @@ function renderShiftBalance() {
   if (balCardSalesEl) balCardSalesEl.textContent = `${formatCurrency(cardSales)} (Tarjeta: ${formatCurrency(cardSalesOnly)} / QR: ${formatCurrency(qrSalesOnly)})`;
   if (balCardTipsEl) balCardTipsEl.textContent = formatCurrency(cardTips);
 
-  const crossShiftTipsOut = currentSales.filter(s => s.openedInShift && s.openedInShift !== state.activeShift.name).reduce((sum, s) => sum + s.tip * 0.5, 0);
-  const activeShiftTips = Math.max(0, totalTips - crossShiftTipsOut);
-
   const balTotalTipsEl = document.getElementById('bal-total-tips');
   const balTipKitchenEl = document.getElementById('bal-tip-kitchen');
-  const balTipWaitersEl = document.getElementById('bal-tip-waiters');
+  const balTipLupitaEl = document.getElementById('bal-tip-lupita');
+  const balTipClaudiaEl = document.getElementById('bal-tip-claudia');
+  const balTipCitlaliEl = document.getElementById('bal-tip-citlali');
+  const balTipInvitadoEl = document.getElementById('bal-tip-invitado');
 
   if (balTotalTipsEl) {
-    if (crossShiftTipsOut > 0) {
-      balTotalTipsEl.innerHTML = `${formatCurrency(totalTips)} <span style="font-size:0.7rem; font-weight:normal; color:#ea4335; display:block; text-align:right;">(-${formatCurrency(crossShiftTipsOut)} del turno ant.)</span>`;
-    } else {
-      balTotalTipsEl.textContent = formatCurrency(totalTips);
-    }
+    balTotalTipsEl.textContent = formatCurrency(totalTips);
   }
-  if (balTipKitchenEl) balTipKitchenEl.textContent = formatCurrency(activeShiftTips * 0.5);
-  if (balTipWaitersEl) balTipWaitersEl.textContent = formatCurrency(activeShiftTips * 0.5);
+  
+  const tipCocina = totalTips * 0.5;
+  const tipLupita = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Lupita'), 0);
+  const tipClaudia = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Claudia'), 0);
+  const tipCitlali = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Citlali'), 0);
+  const tipInvitado = currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Invitado'), 0);
+
+  if (balTipKitchenEl) balTipKitchenEl.textContent = formatCurrency(tipCocina);
+  if (balTipLupitaEl) balTipLupitaEl.textContent = formatCurrency(tipLupita);
+  if (balTipClaudiaEl) balTipClaudiaEl.textContent = formatCurrency(tipClaudia);
+  if (balTipCitlaliEl) balTipCitlaliEl.textContent = formatCurrency(tipCitlali);
+  if (balTipInvitadoEl) balTipInvitadoEl.textContent = formatCurrency(tipInvitado);
 
   const nextInitialCashInput = document.getElementById('next-initial-cash');
   if (nextInitialCashInput) {
@@ -2767,8 +3003,21 @@ function renderFinancialReports() {
           <input type="number" step="0.01" class="edit-shift-expenses" value="${shift.totalExpenses}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
         </td>
         <td style="padding: 8px; text-align: right; font-weight: bold;">${formatCurrency(shift.expectedCash)}</td>
-        <td style="padding: 8px; text-align: right;">${formatCurrency(shift.tipCocina)}</td>
-        <td style="padding: 8px; text-align: right;">${formatCurrency(shift.tipMeseros)}</td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-tip-kitchen" value="${shift.tipCocina || 0}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-tip-lupita" value="${shift.tipLupita || 0}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-tip-claudia" value="${shift.tipClaudia || 0}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-tip-citlali" value="${shift.tipCitlali || 0}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
+        <td style="padding: 8px; text-align: right;">
+          <input type="number" step="0.01" class="edit-shift-tip-invitado" value="${shift.tipInvitado || 0}" style="width:60px; padding:4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:white; border-radius:4px; text-align:right;">
+        </td>
         <td style="padding: 8px; text-align: center;">
           <div style="display: flex; gap: 4px; justify-content: center;">
             <button class="btn btn-primary btn-save-shift-edit" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-save"></i></button>
@@ -2788,8 +3037,12 @@ function renderFinancialReports() {
         const cashTips = totalTips * 0.4;
         const cardTips = totalTips * 0.6;
         const expectedCash = initialCash + cashSales + cashTips - totalExpenses;
-        const tipCocina = totalTips * 0.5;
-        const tipMeseros = totalTips * 0.5;
+
+        const tipCocina = parseFloat(tr.querySelector('.edit-shift-tip-kitchen').value || '0');
+        const tipLupita = parseFloat(tr.querySelector('.edit-shift-tip-lupita').value || '0');
+        const tipClaudia = parseFloat(tr.querySelector('.edit-shift-tip-claudia').value || '0');
+        const tipCitlali = parseFloat(tr.querySelector('.edit-shift-tip-citlali').value || '0');
+        const tipInvitado = parseFloat(tr.querySelector('.edit-shift-tip-invitado').value || '0');
 
         updateHistoricalRecord('closedShifts', shift.id, { 
           initialCash, 
@@ -2802,7 +3055,10 @@ function renderFinancialReports() {
           totalExpenses,
           expectedCash,
           tipCocina,
-          tipMeseros
+          tipLupita,
+          tipClaudia,
+          tipCitlali,
+          tipInvitado
         });
       });
 
@@ -2814,9 +3070,8 @@ function renderFinancialReports() {
     });
   }
 
-  // 4. Tabulador Semanal de Propinas y Calculadora
+  // 4. Tabulador Semanal de Propinas
   renderWeeklyTipsTable();
-  renderTipCalculator();
 }
 
 function renderMonthlySalesChart(monthlyData) {
@@ -2965,8 +3220,11 @@ function getWeeklyTipsData() {
     targetDate.setDate(monday.getDate() + i);
     const dateStr = targetDate.toISOString().split('T')[0];
 
-    let matutino = 0;
-    let vespertino = 0;
+    let tipCocina = 0;
+    let tipLupita = 0;
+    let tipClaudia = 0;
+    let tipCitlali = 0;
+    let tipInvitado = 0;
 
     // 1. Filtrar cortes de caja (turnos cerrados) en esta fecha
     const shiftsOnDate = (state.closedShifts || []).filter(cs => {
@@ -2974,45 +3232,43 @@ function getWeeklyTipsData() {
       return shiftDateStr === dateStr;
     });
 
-    let closedMatutino = false;
-    let closedVespertino = false;
-
     shiftsOnDate.forEach(cs => {
-      if (cs.name === 'Matutino') {
-        matutino += (cs.tipCocina || 0) + (cs.tipMeseros || 0);
-        closedMatutino = true;
-      } else if (cs.name === 'Vespertino') {
-        vespertino += (cs.tipCocina || 0) + (cs.tipMeseros || 0);
-        closedVespertino = true;
-      }
+      tipCocina += cs.tipCocina || 0;
+      tipLupita += cs.tipLupita || 0;
+      tipClaudia += cs.tipClaudia || 0;
+      tipCitlali += cs.tipCitlali || 0;
+      tipInvitado += cs.tipInvitado || 0;
     });
 
     // 2. Si el turno activo está en esta fecha y aún no está cerrado, calcular en tiempo real de salesHistory
     if (state.activeShift) {
       const activeShiftDateStr = new Date(state.activeShift.startedAt || today).toISOString().split('T')[0];
       if (activeShiftDateStr === dateStr) {
-        if (state.activeShift.name === 'Matutino' && !closedMatutino) {
-          const currentSales = state.salesHistory.filter(s => !s.closed && s.shift === 'Matutino');
+        const isClosed = shiftsOnDate.some(cs => cs.name === state.activeShift.name);
+        if (!isClosed) {
+          const currentSales = state.salesHistory.filter(s => !s.closed && s.shift === state.activeShift.name);
           const totalTips = currentSales.reduce((sum, s) => sum + (s.tip || 0), 0);
-          matutino += totalTips;
-        }
-        if (state.activeShift.name === 'Vespertino' && !closedVespertino) {
-          const currentSales = state.salesHistory.filter(s => !s.closed && s.shift === 'Vespertino');
-          const totalTips = currentSales.reduce((sum, s) => sum + (s.tip || 0), 0);
-          const crossShiftTipsOut = currentSales.filter(s => s.openedInShift && s.openedInShift === 'Matutino').reduce((sum, s) => sum + s.tip * 0.5, 0);
-          const activeShiftTips = Math.max(0, totalTips - crossShiftTipsOut);
-          vespertino += activeShiftTips;
-          matutino += crossShiftTipsOut; // 50% de mesas matutinas cobradas en la tarde van a la mañana
+          
+          tipCocina += totalTips * 0.5;
+          tipLupita += currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Lupita'), 0);
+          tipClaudia += currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Claudia'), 0);
+          tipCitlali += currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Citlali'), 0);
+          tipInvitado += currentSales.reduce((sum, s) => sum + getWaiterTipShare(s, 'Invitado'), 0);
         }
       }
     }
 
+    const total = tipCocina + tipLupita + tipClaudia + tipCitlali + tipInvitado;
+
     weeklyData.push({
       dayName: daysOfWeek[i],
       dateStr: dateStr,
-      matutino: matutino,
-      vespertino: vespertino,
-      total: matutino + vespertino
+      tipCocina,
+      tipLupita,
+      tipClaudia,
+      tipCitlali,
+      tipInvitado,
+      total
     });
   }
 
@@ -3026,143 +3282,67 @@ function renderWeeklyTipsTable() {
   const weeklyData = getWeeklyTipsData();
   tbody.innerHTML = '';
 
+  let totalCocina = 0;
+  let totalLupita = 0;
+  let totalClaudia = 0;
+  let totalCitlali = 0;
+  let totalInvitado = 0;
+  let totalWeekly = 0;
+
   weeklyData.forEach(day => {
     const tr = document.createElement('tr');
     tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
 
-    // Cocina Matutino
-    const isMatutinoCocinaSelected = state.selectedTips.some(t => t.dateStr === day.dateStr && t.shift === 'Matutino' && t.type === 'Cocina');
-    // Meseros Matutino
-    const isMatutinoMeserosSelected = state.selectedTips.some(t => t.dateStr === day.dateStr && t.shift === 'Matutino' && t.type === 'Meseros');
-    // Cocina Vespertino
-    const isVespertinoCocinaSelected = state.selectedTips.some(t => t.dateStr === day.dateStr && t.shift === 'Vespertino' && t.type === 'Cocina');
-    // Meseros Vespertino
-    const isVespertinoMeserosSelected = state.selectedTips.some(t => t.dateStr === day.dateStr && t.shift === 'Vespertino' && t.type === 'Meseros');
+    totalCocina += day.tipCocina;
+    totalLupita += day.tipLupita;
+    totalClaudia += day.tipClaudia;
+    totalCitlali += day.tipCitlali;
+    totalInvitado += day.tipInvitado;
+    totalWeekly += day.total;
 
-    const matutinoCocinaVal = day.matutino * 0.5;
-    const matutinoMeserosVal = day.matutino * 0.5;
-    const vespertinoCocinaVal = day.vespertino * 0.5;
-    const vespertinoMeserosVal = day.vespertino * 0.5;
-
-    tr.innerHTML = `
+    const types = ['Cocina', 'Lupita', 'Claudia', 'Citlali', 'Invitado'];
+    let cellsHTML = `
       <td style="padding: 10px; font-weight: 500;">
         ${day.dayName} 
         <span style="font-size: 0.75rem; color: rgba(255,255,255,0.4); display: block;">${day.dateStr}</span>
       </td>
-      <td class="clickable-tip-cell ${isMatutinoCocinaSelected ? 'selected-tip' : ''}" 
-          style="padding: 10px; text-align: right;" 
-          data-date="${day.dateStr}" 
-          data-shift="Matutino" 
-          data-type="Cocina"
-          data-amount="${matutinoCocinaVal}">
-        ${formatCurrency(matutinoCocinaVal)}
-      </td>
-      <td class="clickable-tip-cell ${isMatutinoMeserosSelected ? 'selected-tip' : ''}" 
-          style="padding: 10px; text-align: right;" 
-          data-date="${day.dateStr}" 
-          data-shift="Matutino" 
-          data-type="Meseros"
-          data-amount="${matutinoMeserosVal}">
-        ${formatCurrency(matutinoMeserosVal)}
-      </td>
-      <td class="clickable-tip-cell ${isVespertinoCocinaSelected ? 'selected-tip' : ''}" 
-          style="padding: 10px; text-align: right;" 
-          data-date="${day.dateStr}" 
-          data-shift="Vespertino" 
-          data-type="Cocina"
-          data-amount="${vespertinoCocinaVal}">
-        ${formatCurrency(vespertinoCocinaVal)}
-      </td>
-      <td class="clickable-tip-cell ${isVespertinoMeserosSelected ? 'selected-tip' : ''}" 
-          style="padding: 10px; text-align: right;" 
-          data-date="${day.dateStr}" 
-          data-shift="Vespertino" 
-          data-type="Meseros"
-          data-amount="${vespertinoMeserosVal}">
-        ${formatCurrency(vespertinoMeserosVal)}
-      </td>
+    `;
+
+    types.forEach(type => {
+      const val = type === 'Cocina' ? day.tipCocina : day['tip' + type];
+      cellsHTML += `
+        <td style="padding: 10px; text-align: right;">
+          ${formatCurrency(val)}
+        </td>
+      `;
+    });
+
+    cellsHTML += `
       <td style="padding: 10px; text-align: right; font-weight: bold; color: var(--color-gold);">
         ${formatCurrency(day.total)}
       </td>
     `;
 
+    tr.innerHTML = cellsHTML;
     tbody.appendChild(tr);
   });
 
-  // Attach event listeners to the new cells
-  tbody.querySelectorAll('.clickable-tip-cell').forEach(cell => {
-    cell.addEventListener('click', () => {
-      const dateStr = cell.getAttribute('data-date');
-      const shift = cell.getAttribute('data-shift');
-      const type = cell.getAttribute('data-type');
-      const amount = parseFloat(cell.getAttribute('data-amount') || '0');
+  // Append automatic Weekly Totals row at the bottom
+  const totalTr = document.createElement('tr');
+  totalTr.style.borderTop = '2px solid rgba(255,255,255,0.15)';
+  totalTr.style.background = 'rgba(255,255,255,0.02)';
+  totalTr.style.fontWeight = 'bold';
 
-      toggleTipSelection(dateStr, shift, type, amount);
-    });
-  });
-}
-
-function toggleTipSelection(dateStr, shift, type, amount) {
-  if (!state.selectedTips) state.selectedTips = [];
-
-  const index = state.selectedTips.findIndex(t => t.dateStr === dateStr && t.shift === shift && t.type === type);
-  if (index > -1) {
-    state.selectedTips.splice(index, 1);
-  } else {
-    state.selectedTips.push({ dateStr, shift, type, amount });
-  }
-
-  // Rerender table and calculator
-  renderWeeklyTipsTable();
-  renderTipCalculator();
-}
-
-function renderTipCalculator() {
-  const selectionsEl = document.getElementById('tip-calculator-selections');
-  const totalEl = document.getElementById('tip-calculator-total');
-  if (!selectionsEl || !totalEl) return;
-
-  if (!state.selectedTips) state.selectedTips = [];
-
-  selectionsEl.innerHTML = '';
-  
-  if (state.selectedTips.length === 0) {
-    selectionsEl.innerHTML = '<span style="color: rgba(255,255,255,0.3); font-style: italic;">Sin turnos seleccionados...</span>';
-    totalEl.textContent = '$0.00';
-    return;
-  }
-
-  let totalSum = 0;
-  // Sort selections by date/shift/type
-  const sorted = [...state.selectedTips].sort((a, b) => {
-    if (a.dateStr !== b.dateStr) return a.dateStr.localeCompare(b.dateStr);
-    if (a.shift !== b.shift) return a.shift.localeCompare(b.shift);
-    return a.type.localeCompare(b.type);
-  });
-
-  sorted.forEach(item => {
-    totalSum += item.amount;
-    
-    // Get short day name
-    const dateObj = new Date(item.dateStr + 'T00:00:00');
-    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const dayLabel = days[dateObj.getDay()];
-
-    const div = document.createElement('div');
-    div.style.display = 'flex';
-    div.style.justify = 'space-between';
-    div.style.alignItems = 'center';
-    div.style.padding = '4px 8px';
-    div.style.background = 'rgba(255,255,255,0.05)';
-    div.style.borderRadius = '4px';
-    div.innerHTML = `
-      <span>${dayLabel} - ${item.shift} (${item.type})</span>
-      <strong style="color: var(--color-gold);">${formatCurrency(item.amount)}</strong>
-    `;
-    selectionsEl.appendChild(div);
-  });
-
-  totalEl.textContent = formatCurrency(totalSum);
+  totalTr.innerHTML = `
+    <td style="padding: 10px; color: var(--accent);">Total Semanal</td>
+    <td style="padding: 10px; text-align: right; color: var(--accent);">${formatCurrency(totalCocina)}</td>
+    <td style="padding: 10px; text-align: right; color: var(--color-gold);">${formatCurrency(totalLupita)}</td>
+    <td style="padding: 10px; text-align: right; color: var(--color-gold);">${formatCurrency(totalClaudia)}</td>
+    <td style="padding: 10px; text-align: right; color: var(--color-gold);">${formatCurrency(totalCitlali)}</td>
+    <td style="padding: 10px; text-align: right; color: var(--color-gold);">${formatCurrency(totalInvitado)}</td>
+    <td style="padding: 10px; text-align: right; color: var(--color-gold);">${formatCurrency(totalWeekly)}</td>
+  `;
+  tbody.appendChild(totalTr);
 }
 
 function updateHistoricalRecord(target, id, updatedRecord) {
